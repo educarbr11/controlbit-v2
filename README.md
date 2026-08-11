@@ -26,6 +26,7 @@ O ControlBit v2 foi desenvolvido com **React Native + Expo** e permite comunica�
   - [Android Studio: instalação oficial x Flatpak/Snap](#android-studio-instalação-oficial-x-flatpaksnap)
 - [Instalação do projeto](#instalação-do-projeto)
 - [Executando em Android físico via USB](#executando-em-android-físico-via-usb)
+- [Gerando APK, AAB e builds para iOS](#gerando-apk-aab-e-builds-para-ios)
 - [Fluxo diário de desenvolvimento](#fluxo-diário-de-desenvolvimento)
 - [Bluetooth](#bluetooth)
 - [Comandos enviados aos dispositivos](#comandos-enviados-aos-dispositivos)
@@ -1736,6 +1737,1486 @@ BUILD SUCCESSFUL
 
 ---
 
+# Gerando APK, AAB e builds para iOS
+
+Esta seção descreve como gerar **artefatos instaláveis ou distribuíveis** do ControlBit depois que o ambiente nativo estiver configurado.
+
+O formato correto depende da plataforma e da finalidade:
+
+| Plataforma | Formato | Uso principal | Instala diretamente no celular? |
+|---|---|---|---:|
+| Android | `.apk` | Teste manual, distribuição interna, sideload | Sim |
+| Android | `.aab` | Google Play / publicação | Não |
+| Android | `.apks` | Conjunto de APKs gerado a partir de AAB com `bundletool` | Via `bundletool` |
+| iOS | `.app` | Bundle compilado, principalmente simulador/desenvolvimento | Depende da assinatura/destino |
+| iOS | `.ipa` | Instalação/distribuição em dispositivos iOS | Sim, quando corretamente assinado/provisionado |
+| iOS | `.xcarchive` | Arquivo intermediário criado pelo Xcode para distribuição | Não diretamente |
+
+> **Regra prática:** para testar rapidamente em um Android físico, gere um **APK**. Para publicar na Google Play, gere um **AAB**. Para testar em um iPhone físico, use `npx expo run:ios --device` no macOS ou gere um **IPA assinado** via Xcode/EAS.
+
+---
+
+## Antes de gerar artefatos nativos
+
+Os comandos Gradle abaixo exigem que a pasta:
+
+```text
+android/
+```
+
+já exista.
+
+Ela normalmente é criada na primeira execução de:
+
+```bash
+npm run device
+```
+
+ou explicitamente por:
+
+```bash
+npx expo prebuild -p android
+```
+
+Para iOS, no macOS:
+
+```bash
+npx expo prebuild -p ios
+```
+
+Se houver mudanças em plugins Expo, permissões ou dependências nativas e for necessário reconstruir os projetos nativos do zero:
+
+```bash
+npx expo prebuild --clean
+```
+
+> `prebuild --clean` recria `android/` e `ios/`. Alterações manuais nesses diretórios podem ser perdidas.
+
+---
+
+# Android — gerar APK
+
+## APK Debug
+
+O APK Debug é apropriado para desenvolvimento e testes internos.
+
+Linux/macOS:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Windows PowerShell:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+O arquivo normalmente será gerado em:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Se você já estiver dentro da pasta `android/`:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Instalar o APK Debug via ADB
+
+A partir da raiz do projeto:
+
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Ou dentro de `android/`:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+A opção:
+
+```text
+-r
+```
+
+solicita ao ADB a reinstalação/atualização do aplicativo preservando os dados quando a assinatura e o package forem compatíveis.
+
+---
+
+## APK Release
+
+Para gerar um APK em modo Release, o fluxo citado e validado para o projeto é:
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Também é possível usar explicitamente o módulo `app`:
+
+```bash
+cd android
+./gradlew app:assembleRelease
+```
+
+No Windows PowerShell:
+
+```powershell
+cd android
+.\gradlew.bat assembleRelease
+```
+
+O APK será normalmente criado em:
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+A partir de `android/`:
+
+```text
+app/build/outputs/apk/release/app-release.apk
+```
+
+### Instalar o APK Release
+
+A partir da raiz:
+
+```bash
+adb install -r android/app/build/outputs/apk/release/app-release.apk
+```
+
+Ou dentro de `android/`:
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+Esse é o formato recomendado quando a equipe precisa:
+
+- enviar uma build Android manualmente para outro desenvolvedor;
+- instalar o ControlBit sem Metro;
+- testar comportamento próximo de Release;
+- testar o aplicativo sem executar `npm start`;
+- validar performance;
+- realizar testes em vários aparelhos sem manter o computador conectado.
+
+---
+
+## Atenção: `assembleRelease` não significa automaticamente "pronto para produção"
+
+Um build:
+
+```bash
+./gradlew assembleRelease
+```
+
+compila a variante Release, mas **a assinatura utilizada precisa ser verificada antes de distribuir publicamente ou publicar o aplicativo**.
+
+O template nativo atual do Expo contém uma configuração de Release que pode utilizar o `debug.keystore` inicialmente, acompanhada de um aviso para configurar um keystore próprio em produção.
+
+Portanto, para o ControlBit:
+
+```text
+assembleRelease
+        ↓
+APK Release para testes internos
+        ≠
+APK de produção corretamente assinado
+```
+
+Antes de publicar, abra:
+
+```text
+android/app/build.gradle
+```
+
+e verifique:
+
+```text
+signingConfigs
+buildTypes.release
+```
+
+Nunca considere um APK de Release pronto para produção apenas porque o Gradle retornou:
+
+```text
+BUILD SUCCESSFUL
+```
+
+Referência do template Expo:
+
+```text
+https://github.com/expo/expo/blob/main/templates/expo-template-bare-minimum/android/app/build.gradle
+```
+
+---
+
+## Gerar APK a partir da raiz sem entrar em `android/`
+
+Linux/macOS:
+
+```bash
+./android/gradlew -p android assembleRelease
+```
+
+Debug:
+
+```bash
+./android/gradlew -p android assembleDebug
+```
+
+Apesar disso, para documentação e troubleshooting, a equipe pode preferir o formato mais simples:
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+---
+
+## Limpar antes de gerar o APK
+
+Nem sempre é necessário, mas quando houver comportamento estranho no build:
+
+Linux/macOS:
+
+```bash
+cd android
+./gradlew clean
+./gradlew assembleRelease
+```
+
+Windows:
+
+```powershell
+cd android
+.\gradlew.bat clean
+.\gradlew.bat assembleRelease
+```
+
+Evite usar `clean` automaticamente em todo build, porque isso remove caches e aumenta o tempo de compilação.
+
+---
+
+# Android — gerar AAB
+
+O **Android App Bundle (`.aab`)** é o formato recomendado para publicação na Google Play.
+
+Um AAB contém código e recursos compilados, mas a Google Play gera APKs otimizados para cada dispositivo a partir dele.
+
+Por isso:
+
+> **Um `.aab` não é normalmente instalado diretamente com `adb install`.**
+
+Para gerar:
+
+Linux/macOS:
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+
+Forma explícita:
+
+```bash
+cd android
+./gradlew app:bundleRelease
+```
+
+Windows PowerShell:
+
+```powershell
+cd android
+.\gradlew.bat bundleRelease
+```
+
+O arquivo normalmente será criado em:
+
+```text
+android/app/build/outputs/bundle/release/app-release.aab
+```
+
+A partir da pasta `android/`:
+
+```text
+app/build/outputs/bundle/release/app-release.aab
+```
+
+O Expo documenta oficialmente o comando:
+
+```bash
+cd android
+./gradlew app:bundleRelease
+```
+
+para gerar um AAB local.
+
+Referências:
+
+```text
+https://docs.expo.dev/guides/local-app-production/
+https://developer.android.com/guide/app-bundle
+```
+
+---
+
+## APK x AAB
+
+Use:
+
+```text
+APK
+```
+
+quando o objetivo for:
+
+- testar diretamente no celular;
+- enviar o arquivo para um pequeno grupo interno;
+- instalar manualmente;
+- validar uma Release local.
+
+Use:
+
+```text
+AAB
+```
+
+quando o objetivo for:
+
+- Google Play Console;
+- Internal Testing da Play Store;
+- Closed Testing;
+- Open Testing;
+- produção na Google Play.
+
+Fluxo:
+
+```text
+APK
+ └── adb install / instalação manual
+
+AAB
+ └── Google Play
+       └── gera APKs otimizados para os aparelhos
+```
+
+---
+
+## Testar um AAB
+
+Como um AAB não é um APK instalável diretamente, existem duas estratégias principais.
+
+### Opção 1 — Google Play Internal Testing
+
+Para validar exatamente o fluxo de distribuição da Play Store:
+
+```text
+bundleRelease
+      ↓
+app-release.aab
+      ↓
+Google Play Console
+      ↓
+Internal Testing
+      ↓
+Google Play instala no aparelho
+```
+
+Esse é o caminho recomendado quando a intenção é validar uma versão próxima da publicação.
+
+### Opção 2 — bundletool
+
+O Android fornece a ferramenta oficial:
+
+```text
+bundletool
+```
+
+que pode transformar um AAB em um conjunto de APKs (`.apks`) e instalar os APKs apropriados no dispositivo.
+
+Documentação:
+
+```text
+https://developer.android.com/tools/bundletool
+```
+
+Para testes cotidianos do ControlBit, entretanto, é mais simples gerar diretamente:
+
+```bash
+./gradlew assembleRelease
+```
+
+e instalar o APK resultante.
+
+---
+
+# Android — assinatura de produção
+
+Para publicar o ControlBit, crie e proteja uma chave de upload/produção.
+
+Exemplo de criação de keystore:
+
+```bash
+keytool -genkeypair \
+  -v \
+  -storetype PKCS12 \
+  -keystore controlbit-upload-key.keystore \
+  -alias controlbit-upload \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+> Não copie a senha real para este README.
+
+Mantenha o arquivo:
+
+```text
+*.keystore
+*.jks
+```
+
+fora do Git.
+
+O fluxo de produção deve ser:
+
+```text
+keystore privado
+      ↓
+signingConfig de Release
+      ↓
+./gradlew bundleRelease
+      ↓
+app-release.aab assinado
+      ↓
+Google Play
+```
+
+A documentação oficial do Expo mostra a configuração de variáveis Gradle e `signingConfig` para builds locais:
+
+```text
+https://docs.expo.dev/guides/local-app-production/
+```
+
+A documentação oficial do Android sobre assinatura:
+
+```text
+https://developer.android.com/studio/publish/app-signing
+```
+
+### Segredos do Gradle
+
+Evite colocar senhas diretamente em arquivos versionados.
+
+Prefira, conforme o ambiente:
+
+```text
+~/.gradle/gradle.properties
+```
+
+ou um sistema de secrets do CI/CD.
+
+Nunca faça commit de:
+
+```text
+keystore
+senha do keystore
+key alias secreto
+key password
+credentials.json
+```
+
+---
+
+## Erro de assinatura ao instalar um novo APK
+
+Quando uma versão já instalada do ControlBit foi assinada com uma chave diferente, pode ocorrer algo parecido com:
+
+```text
+INSTALL_FAILED_UPDATE_INCOMPATIBLE
+```
+
+Isso pode acontecer, por exemplo, ao mudar de:
+
+```text
+debug.keystore
+```
+
+para:
+
+```text
+keystore de produção
+```
+
+Como ambas as versões utilizam:
+
+```text
+com.dejesusdev.controlbit
+```
+
+o Android não permite substituir um aplicativo por outro com assinatura incompatível.
+
+Para ambiente de teste:
+
+```bash
+adb uninstall com.dejesusdev.controlbit
+```
+
+Depois:
+
+```bash
+adb install android/app/build/outputs/apk/release/app-release.apk
+```
+
+> `adb uninstall` remove também os dados locais da aplicação. Faça isso apenas quando aceitável.
+
+---
+
+# Android — comandos rápidos
+
+### Debug APK
+
+Linux/macOS:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Saída:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Release APK
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Saída:
+
+```text
+app/build/outputs/apk/release/app-release.apk
+```
+
+### Release AAB
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+
+Saída:
+
+```text
+app/build/outputs/bundle/release/app-release.aab
+```
+
+### Instalar Release APK
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+### Limpar Gradle
+
+```bash
+./gradlew clean
+```
+
+---
+
+# iOS — conceitos importantes
+
+O iOS utiliza uma cadeia de build e distribuição diferente do Android.
+
+Não existem equivalentes diretos a:
+
+```text
+APK
+AAB
+```
+
+Os formatos mais importantes são:
+
+### `.app`
+
+Bundle compilado de uma aplicação Apple.
+
+Pode representar, por exemplo:
+
+- build de simulador;
+- build de desenvolvimento;
+- build resultante do Xcode.
+
+Um `.app` criado para o **iOS Simulator não pode ser instalado em um iPhone físico**.
+
+### `.ipa`
+
+Pacote utilizado para distribuir uma aplicação iOS para dispositivos reais.
+
+Para funcionar em um iPhone, o IPA deve estar:
+
+- assinado;
+- associado a certificados Apple válidos;
+- associado ao provisioning adequado à forma de distribuição.
+
+### `.xcarchive`
+
+Arquivo produzido pelo processo de Archive do Xcode.
+
+Ele é utilizado para posteriormente:
+
+- exportar um IPA;
+- enviar ao TestFlight;
+- enviar à App Store;
+- gerar builds de distribuição.
+
+Fluxo típico:
+
+```text
+código
+  ↓
+Xcode
+  ↓
+.xcarchive
+  ↓
+Distribute App
+  ├── Development / dispositivo registrado
+  ├── Ad Hoc / distribuição interna
+  ├── TestFlight
+  └── App Store
+       ↓
+      .ipa / App Store Connect
+```
+
+---
+
+# iOS — requisitos
+
+## Build local
+
+Para gerar e assinar builds iOS localmente é necessário:
+
+```text
+macOS
+Xcode
+Xcode Command Line Tools
+projeto ios/ gerado
+configuração de Signing & Capabilities
+```
+
+O comando:
+
+```bash
+npx expo run:ios
+```
+
+só pode ser executado localmente em um Mac com Xcode instalado.
+
+Linux e Windows **não conseguem executar a toolchain Xcode localmente**.
+
+Nesses ambientes, a alternativa para gerar um build iOS é utilizar um serviço de build macOS, como o **EAS Build**, ou CI baseado em macOS.
+
+Referência:
+
+```text
+https://docs.expo.dev/more/expo-cli/
+```
+
+---
+
+# iOS — testar diretamente em iPhone físico
+
+Este é o caminho mais simples quando o desenvolvedor possui um Mac.
+
+Conecte o iPhone por USB.
+
+No iPhone, em versões modernas do iOS, habilite **Developer Mode** quando necessário.
+
+Na raiz do projeto:
+
+```bash
+npx expo run:ios --device
+```
+
+O Expo apresentará os dispositivos disponíveis.
+
+Selecione o iPhone.
+
+O Expo CLI pode:
+
+```text
+gerar ios/ se necessário
+        ↓
+executar Xcode build
+        ↓
+configurar assinatura de desenvolvimento
+        ↓
+instalar no iPhone
+        ↓
+abrir o ControlBit
+```
+
+A documentação atual do Expo informa que `npx expo run:ios --device` pode assinar automaticamente o aplicativo para desenvolvimento, instalar e iniciar no dispositivo quando a configuração de signing está disponível.
+
+Referência:
+
+```text
+https://docs.expo.dev/more/expo-cli/
+```
+
+---
+
+## Abrir o projeto no Xcode
+
+Depois que `ios/` existir:
+
+```bash
+xed ios
+```
+
+Ou abra manualmente o arquivo `.xcworkspace` criado pelo projeto.
+
+Dentro do Xcode:
+
+```text
+Project
+→ Target
+→ Signing & Capabilities
+```
+
+Selecione a equipe Apple adequada em:
+
+```text
+Team
+```
+
+Depois selecione o iPhone como destino e use:
+
+```text
+Product
+→ Run
+```
+
+Esse fluxo é útil principalmente para:
+
+- investigar erros nativos;
+- configurar signing;
+- verificar capabilities;
+- analisar logs;
+- testar diretamente no aparelho.
+
+---
+
+# iOS — build Release para diagnóstico
+
+Para testar um problema que só ocorre em Release:
+
+```bash
+npx expo run:ios --configuration Release
+```
+
+Esse comando gera uma compilação Release local, mas **não deve ser interpretado automaticamente como um artefato pronto para envio à App Store**.
+
+O Expo recomenda Xcode/EAS para o fluxo de assinatura e distribuição de produção.
+
+---
+
+# iOS — gerar `.app` de simulador
+
+É possível gerar um `.app` para um destino genérico de **iOS Simulator**:
+
+```bash
+npx expo run:ios \
+  --configuration Release \
+  --device generic \
+  --output ./build/ios-simulator
+```
+
+A saída será semelhante a:
+
+```text
+build/ios-simulator/controlbit.app
+```
+
+Esse formato é útil para:
+
+- CI;
+- testes em simuladores;
+- compartilhar um build de simulador entre Macs compatíveis.
+
+> **Esse `.app` é compilado para iOS Simulator e não deve ser usado para instalar em iPhone físico.**
+
+---
+
+# iOS — gerar IPA com Xcode para dispositivo físico
+
+Para gerar um IPA para teste/distribuição, o fluxo mais seguro para desenvolvedores internos é usar o Xcode.
+
+## 1. Gerar projeto iOS
+
+Na raiz:
+
+```bash
+npx expo prebuild -p ios
+```
+
+## 2. Abrir Xcode
+
+```bash
+xed ios
+```
+
+## 3. Configurar assinatura
+
+No target do ControlBit:
+
+```text
+Signing & Capabilities
+→ Team
+→ selecionar equipe Apple
+```
+
+Confirme o Bundle Identifier:
+
+```text
+com.dejesusdev.controlbit
+```
+
+Esse valor já está declarado no `app.json`.
+
+## 4. Selecionar destino genérico de dispositivo
+
+No topo do Xcode, selecione um destino equivalente a:
+
+```text
+Any iOS Device (arm64)
+```
+
+ou um dispositivo físico compatível.
+
+## 5. Gerar Archive
+
+No menu:
+
+```text
+Product
+→ Archive
+```
+
+Ao finalizar, o Xcode abrirá o Organizer.
+
+## 6. Distribuir
+
+No Organizer:
+
+```text
+Archives
+→ selecionar ControlBit
+→ Distribute App
+```
+
+Escolha o método apropriado.
+
+Para testes internos, os caminhos mais relevantes são:
+
+```text
+Development
+Ad Hoc / Registered Devices
+TestFlight
+```
+
+O Xcode pode exportar uma pasta contendo o arquivo:
+
+```text
+.ipa
+```
+
+A Apple documenta que o fluxo de exportação para dispositivos registrados produz um IPA.
+
+Referências:
+
+```text
+https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices
+https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases
+```
+
+---
+
+# iOS — IPA Development / Ad Hoc
+
+Para instalar um IPA fora da App Store, o dispositivo precisa estar incluído na forma de provisioning escolhida.
+
+Em uma distribuição para **registered devices / Ad Hoc**, normalmente são necessários:
+
+```text
+Apple Developer Program
+App ID
+certificado de distribuição/desenvolvimento adequado
+UDID do iPhone registrado
+provisioning profile
+IPA assinado
+```
+
+A Apple exige que os dispositivos destinados ao teste Ad Hoc sejam registrados.
+
+Isso significa que não é possível simplesmente enviar qualquer IPA para qualquer iPhone da mesma forma que um APK Android.
+
+Fluxo:
+
+```text
+iPhone
+  ↓
+registrar UDID
+  ↓
+Provisioning Profile
+  ↓
+Archive no Xcode
+  ↓
+Export / Distribute App
+  ↓
+ControlBit.ipa
+  ↓
+instalação no dispositivo autorizado
+```
+
+---
+
+# iOS — TestFlight
+
+Para testes com um grupo maior, prefira TestFlight.
+
+Fluxo:
+
+```text
+Xcode Archive ou EAS Build
+        ↓
+App Store Connect
+        ↓
+TestFlight
+        ↓
+Internal Testers / External Testers
+        ↓
+iPhone
+```
+
+TestFlight evita o processo de enviar um IPA manualmente para cada usuário e é mais próximo do fluxo real de distribuição.
+
+A Apple permite distribuir um archive pelo App Store Connect para beta testing via TestFlight.
+
+---
+
+# iOS — build por linha de comando com Xcode
+
+Para automações/CI avançado, é possível utilizar `xcodebuild`.
+
+Primeiro descubra os schemes e workspaces reais gerados:
+
+```bash
+find ios -maxdepth 2 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print
+```
+
+Depois consulte os schemes:
+
+```bash
+xcodebuild -list -workspace ios/<WORKSPACE>.xcworkspace
+```
+
+Exemplo de Archive:
+
+```bash
+xcodebuild \
+  -workspace ios/<WORKSPACE>.xcworkspace \
+  -scheme <SCHEME> \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath build/ControlBit.xcarchive \
+  archive
+```
+
+Depois, para exportar:
+
+```bash
+xcodebuild \
+  -exportArchive \
+  -archivePath build/ControlBit.xcarchive \
+  -exportOptionsPlist ExportOptions.plist \
+  -exportPath build/ios
+```
+
+O arquivo:
+
+```text
+ExportOptions.plist
+```
+
+define a estratégia de distribuição e assinatura.
+
+> Evite copiar cegamente um `ExportOptions.plist` antigo entre versões do Xcode. Gere/valide a configuração com a versão de Xcode usada pela equipe.
+
+Para o trabalho cotidiano, prefira o Organizer do Xcode. Use `xcodebuild` quando houver necessidade de CI/CD ou builds reproduzíveis.
+
+---
+
+# EAS Build — alternativa para Android e iOS
+
+O projeto usa Expo, portanto o **EAS Build** pode ser adotado como alternativa ao build totalmente local.
+
+Essa opção é particularmente importante para desenvolvedores em:
+
+```text
+Linux
+Windows
+```
+
+que precisam gerar iOS sem possuir um Mac local.
+
+O EAS executa o build iOS em infraestrutura macOS remota.
+
+---
+
+## Configurar EAS
+
+Sem instalar CLI globalmente:
+
+```bash
+npx eas-cli@latest login
+```
+
+Depois:
+
+```bash
+npx eas-cli@latest build:configure
+```
+
+Isso cria/configura:
+
+```text
+eas.json
+```
+
+> O ControlBit não deve passar a depender de EAS implicitamente. Caso a equipe adote esse fluxo oficialmente, versione e documente o `eas.json`.
+
+---
+
+## Exemplo de perfis EAS
+
+Um exemplo inicial para discussão da equipe:
+
+```json
+{
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {}
+  }
+}
+```
+
+### `development`
+
+Indicado para development builds e Metro.
+
+Pode exigir:
+
+```bash
+npx expo install expo-dev-client
+```
+
+Não instale essa dependência apenas para seguir o README se a equipe não tiver decidido usar development builds EAS.
+
+### `preview`
+
+Indicado para um aplicativo standalone de testes internos.
+
+### `production`
+
+Indicado para artefatos destinados às lojas.
+
+---
+
+## Android com EAS
+
+Preview/internal:
+
+```bash
+npx eas-cli@latest build \
+  --platform android \
+  --profile preview
+```
+
+Para produção:
+
+```bash
+npx eas-cli@latest build \
+  --platform android \
+  --profile production
+```
+
+Em produção, o formato Android padrão é tipicamente voltado à Play Store (`AAB`). Para distribuição interna, o perfil pode ser configurado para produzir um APK instalável.
+
+Referência:
+
+```text
+https://docs.expo.dev/build-reference/apk/
+```
+
+---
+
+## iOS físico com EAS
+
+Para um build iOS instalável em dispositivo físico é necessário configurar assinatura/provisioning Apple.
+
+Uma estratégia de distribuição interna:
+
+```bash
+npx eas-cli@latest build \
+  --platform ios \
+  --profile preview
+```
+
+Para development build:
+
+```bash
+npx eas-cli@latest build \
+  --platform ios \
+  --profile development
+```
+
+Development builds iOS para dispositivo físico são gerados em formato:
+
+```text
+.ipa
+```
+
+O Expo documenta que esse fluxo exige credenciais Apple e provisioning para os dispositivos.
+
+Para registrar um aparelho quando necessário:
+
+```bash
+npx eas-cli@latest device:create
+```
+
+Depois gere novamente o build incluindo o dispositivo registrado.
+
+Referência:
+
+```text
+https://docs.expo.dev/tutorial/eas/ios-development-build-for-devices/
+```
+
+---
+
+## EAS iOS a partir de Linux/Windows
+
+Fluxo conceitual:
+
+```text
+Linux / Windows
+      ↓
+código ControlBit
+      ↓
+EAS CLI
+      ↓
+EAS Build em macOS remoto
+      ↓
+assinatura Apple
+      ↓
+IPA
+      ↓
+iPhone / TestFlight
+```
+
+Isso resolve a limitação de não existir Xcode para Linux/Windows.
+
+Entretanto, ainda existem requisitos Apple:
+
+- conta apropriada;
+- certificados;
+- provisioning;
+- dispositivos registrados quando a distribuição exigir;
+- Developer Mode para development builds em versões aplicáveis do iOS.
+
+---
+
+# Atenção especial: Bluetooth no iOS
+
+Gerar e instalar o ControlBit em um iPhone **não significa que todos os modos Bluetooth atuais funcionarão da mesma forma que no Android**.
+
+O projeto possui:
+
+```text
+BLE
+Bluetooth Classic
+```
+
+### BLE
+
+A pilha baseada em:
+
+```text
+react-native-ble-plx
+```
+
+é o caminho mais adequado para validação no iOS, desde que as permissões, serviços e characteristics utilizadas pelo periférico sejam compatíveis.
+
+O `app.json` já contém:
+
+```text
+NSBluetoothAlwaysUsageDescription
+NSBluetoothPeripheralUsageDescription
+```
+
+e o plugin do BLE.
+
+### Bluetooth Classic / HC-05 / HC-06
+
+O iOS possui restrições importantes para Bluetooth Classic.
+
+A própria documentação de:
+
+```text
+react-native-bluetooth-classic
+```
+
+explica que comunicação Classic no iOS passa pelo framework:
+
+```text
+ExternalAccessory
+```
+
+e por dispositivos/protocolos compatíveis com o programa **MFi** da Apple.
+
+Portanto, módulos comuns:
+
+```text
+HC-05
+HC-06
+```
+
+que funcionam por SPP no Android **não devem ser considerados automaticamente compatíveis com iPhone**.
+
+Antes de declarar suporte iOS para Bluetooth Classic, a equipe precisa validar:
+
+```text
+hardware
+MFi
+protocol strings
+Info.plist
+biblioteca nativa
+fluxo de conexão
+```
+
+Referências:
+
+```text
+https://kenjdavidson.com/react-native-bluetooth-classic/
+https://kenjdavidson.com/react-native-bluetooth-classic/ios/
+```
+
+Para compatibilidade multiplataforma, prefira testar periféricos BLE quando possível.
+
+---
+
+# Resumo — qual artefato gerar?
+
+## Quero testar rapidamente no meu Android
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Depois:
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+---
+
+## Quero testar uma build de desenvolvimento Android
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+---
+
+## Quero enviar para Google Play
+
+Configure assinatura de produção e execute:
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+
+Resultado:
+
+```text
+app/build/outputs/bundle/release/app-release.aab
+```
+
+---
+
+## Quero rodar diretamente em um iPhone conectado
+
+Em um Mac:
+
+```bash
+npx expo run:ios --device
+```
+
+---
+
+## Quero gerar um IPA para iPhone
+
+Em um Mac:
+
+```text
+Xcode
+→ Product
+→ Archive
+→ Distribute App
+→ Development / Ad Hoc
+→ Export
+```
+
+Ou use EAS Build com provisioning configurado.
+
+---
+
+## Quero testar pelo TestFlight
+
+```text
+Archive / EAS Production Build
+        ↓
+App Store Connect
+        ↓
+TestFlight
+```
+
+---
+
+## Estou no Linux/Windows e preciso gerar iOS
+
+Não é possível executar Xcode localmente.
+
+Use:
+
+```text
+EAS Build
+```
+
+ou outra infraestrutura CI/macOS.
+
+---
+
+# Versionamento antes de builds distribuíveis
+
+Antes de publicar uma nova versão, revise:
+
+```text
+expo.version
+android.versionCode
+ios.buildNumber
+```
+
+Atualmente o `app.json` define:
+
+```json
+{
+  "expo": {
+    "version": "1.0.0"
+  }
+}
+```
+
+Para builds de loja, recomenda-se manter também valores explícitos e crescentes, por exemplo:
+
+```json
+{
+  "expo": {
+    "version": "1.1.0",
+    "android": {
+      "versionCode": 2
+    },
+    "ios": {
+      "buildNumber": "2"
+    }
+  }
+}
+```
+
+Conceitualmente:
+
+```text
+version
+→ versão exibida ao usuário
+→ ex.: 1.1.0
+
+android.versionCode
+→ inteiro crescente por release Android
+
+ios.buildNumber
+→ build crescente por release iOS
+```
+
+Como o projeto usa Expo Prebuild, prefira guardar configurações persistentes no:
+
+```text
+app.json
+```
+
+quando houver suporte para essa propriedade, evitando depender apenas de mudanças manuais em arquivos gerados.
+
+---
+
+# Checklist de build distribuível
+
+Antes de compartilhar um APK, AAB ou IPA:
+
+- [ ] `npm ci` executado.
+- [ ] `npx expo-doctor` sem erro crítico.
+- [ ] Versão revisada.
+- [ ] Build gerado em modo correto.
+- [ ] Assinatura verificada.
+- [ ] Nenhum keystore/certificado/senha foi commitado.
+- [ ] Aplicativo instalado em dispositivo físico.
+- [ ] Home abre corretamente.
+- [ ] Controle básico funciona.
+- [ ] Controle customizável funciona.
+- [ ] Persistência funciona após reiniciar o app.
+- [ ] Permissões Bluetooth funcionam.
+- [ ] BLE foi testado quando aplicável.
+- [ ] Bluetooth Classic foi testado no Android quando aplicável.
+- [ ] iOS não foi declarado compatível com HC-05/HC-06 sem validação MFi.
+- [ ] Build Release funciona sem Metro.
+- [ ] Package/Bundle Identifier continua `com.dejesusdev.controlbit`.
+- [ ] Artefato correto foi selecionado para o destino: APK, AAB ou IPA.
+
+---
+
 # Fluxo diário de desenvolvimento
 
 Depois de realizar o primeiro build nativo, alterações apenas em:
@@ -2384,6 +3865,27 @@ npm run device
 ---
 
 # Troubleshooting
+
+## `android/` ou `ios/` não existe ao tentar gerar Release
+
+O projeto utiliza Expo Prebuild, portanto os diretórios nativos podem não existir logo após o clone.
+
+Android:
+
+```bash
+npx expo prebuild -p android
+```
+
+iOS, somente no macOS com toolchain Apple:
+
+```bash
+npx expo prebuild -p ios
+```
+
+Depois execute novamente o build correspondente.
+
+---
+
 
 ## `expo` não encontrado
 
