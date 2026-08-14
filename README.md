@@ -315,6 +315,7 @@ controlbit-v2/
 │
 ├── App.tsx
 ├── app.json
+├── build-android-release.sh
 ├── babel.config.js
 ├── global.css
 ├── index.ts
@@ -1918,43 +1919,61 @@ Um build:
 ./gradlew assembleRelease
 ```
 
-compila a variante Release, mas **a assinatura utilizada precisa ser verificada antes de distribuir publicamente ou publicar o aplicativo**.
+compila a variante Release, mas **a assinatura utilizada precisa ser validada antes de distribuir publicamente ou publicar o aplicativo**.
 
-O template nativo atual do Expo contém uma configuração de Release que pode utilizar o `debug.keystore` inicialmente, acompanhada de um aviso para configurar um keystore próprio em produção.
-
-Portanto, para o ControlBit:
+No ControlBit, a configuração nativa de Release utiliza uma `signingConfig` própria e lê as credenciais pelas propriedades:
 
 ```text
-assembleRelease
-        ↓
-APK Release para testes internos
-        ≠
-APK de produção corretamente assinado
+MYAPP_UPLOAD_STORE_FILE
+MYAPP_UPLOAD_KEY_ALIAS
+MYAPP_UPLOAD_STORE_PASSWORD
+MYAPP_UPLOAD_KEY_PASSWORD
 ```
 
-Antes de publicar, abra:
+A variante `release` **não deve utilizar**:
 
 ```text
-android/app/build.gradle
+android/app/debug.keystore
 ```
 
-e verifique:
+O certificado de debug que já causou rejeição no Google Play tinha SHA-1 diferente da chave de upload cadastrada.
+
+Antes de distribuir um APK Release, valide a assinatura com:
+
+```bash
+cd android
+./gradlew :app:signingReport
+```
+
+Procure:
 
 ```text
-signingConfigs
-buildTypes.release
+Variant: release
+Config: release
+Store: /caminho/real/para/controlbit-upload.jks
+Alias: controlbit-upload
+SHA1: <SHA-1 DA CHAVE DE UPLOAD>
 ```
 
-Nunca considere um APK de Release pronto para produção apenas porque o Gradle retornou:
+Para publicação na Google Play, prefira o fluxo automatizado descrito em [Android — assinatura de produção](#android--assinatura-de-produção), usando:
+
+```bash
+./build-android-release.sh
+```
+
+Nunca considere um APK ou AAB pronto para publicação apenas porque o Gradle retornou:
 
 ```text
 BUILD SUCCESSFUL
 ```
 
-Referência do template Expo:
+A assinatura, o `applicationId` e o `versionCode` também precisam estar corretos.
+
+Referências:
 
 ```text
-https://github.com/expo/expo/blob/main/templates/expo-template-bare-minimum/android/app/build.gradle
+https://docs.expo.dev/guides/local-app-production/
+https://developer.android.com/studio/publish/app-signing
 ```
 
 ---
@@ -1982,27 +2001,56 @@ cd android
 
 ---
 
-## Limpar antes de gerar o APK
+## Limpeza antes de builds Android
 
-Nem sempre é necessário, mas quando houver comportamento estranho no build:
+Não execute `./gradlew clean` automaticamente neste projeto antes de builds distribuíveis.
 
-Linux/macOS:
+Com a New Architecture do React Native, módulos nativos com Codegen podem fazer o `clean` acionar `externalNativeBuildCleanRelease` sobre um estado antigo do CMake. Já foi observado no ControlBit um erro semelhante a:
+
+```text
+Task :app:externalNativeBuildCleanRelease FAILED
+
+add_subdirectory given source
+".../generated/source/codegen/jni/"
+which is not an existing directory
+```
+
+Quando for necessário descartar artefatos nativos antigos, a limpeza interna adotada pelo script de Release é:
 
 ```bash
 cd android
-./gradlew clean
-./gradlew assembleRelease
+
+rm -rf app/.cxx
+rm -rf .cxx
+rm -rf app/build
+rm -rf build
 ```
 
-Windows:
+Depois, gere explicitamente os artefatos de Codegen:
 
-```powershell
-cd android
-.\gradlew.bat clean
-.\gradlew.bat assembleRelease
+```bash
+./gradlew generateCodegenArtifactsFromSchema
 ```
 
-Evite usar `clean` automaticamente em todo build, porque isso remove caches e aumenta o tempo de compilação.
+e só então execute o build desejado:
+
+```bash
+./gradlew app:assembleRelease
+```
+
+ou, para publicação:
+
+```bash
+./gradlew app:bundleRelease
+```
+
+O script:
+
+```text
+build-android-release.sh
+```
+
+automatiza esse fluxo para o AAB de produção.
 
 ---
 
@@ -2161,78 +2209,452 @@ e instalar o APK resultante.
 
 # Android — assinatura de produção
 
-Para publicar o ControlBit, crie e proteja uma chave de upload/produção.
+A publicação Android do ControlBit utiliza **Google Play App Signing** com uma **chave de upload** privada da equipe.
 
-Exemplo de criação de keystore:
+Existem duas chaves conceitualmente diferentes:
+
+```text
+Chave de upload
+      ↓
+usada pela equipe para assinar o AAB enviado
+      ↓
+Google Play valida o certificado do upload
+
+Chave de assinatura do app
+      ↓
+mantida/gerenciada pelo Google Play App Signing
+      ↓
+usada na assinatura entregue aos usuários
+```
+
+Para builds locais, o EAS **não participa da assinatura**. O AAB é assinado pelo Gradle na máquina que executa o build.
+
+O identificador Android usado para atualizar o aplicativo já existente no Google Play deve continuar sendo:
+
+```text
+com.dejesusdev.controlbit
+```
+
+Alterar o `applicationId` para outro valor, por exemplo:
+
+```text
+com.dogomaker.controlbit
+```
+
+faz o bundle representar outro aplicativo e impede o upload como atualização do cadastro existente.
+
+---
+
+## Configuração nativa de Release
+
+O arquivo:
+
+```text
+android/app/build.gradle
+```
+
+deve manter uma configuração equivalente a:
+
+```gradle
+signingConfigs {
+    debug {
+        storeFile file('debug.keystore')
+        storePassword 'android'
+        keyAlias 'androiddebugkey'
+        keyPassword 'android'
+    }
+
+    release {
+        if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+            storeFile file(MYAPP_UPLOAD_STORE_FILE)
+            storePassword MYAPP_UPLOAD_STORE_PASSWORD
+            keyAlias MYAPP_UPLOAD_KEY_ALIAS
+            keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+        }
+    }
+}
+
+buildTypes {
+    debug {
+        signingConfig signingConfigs.debug
+    }
+
+    release {
+        signingConfig signingConfigs.release
+
+        // Demais configurações de Release...
+    }
+}
+```
+
+A regra importante é:
+
+```gradle
+release {
+    signingConfig signingConfigs.release
+}
+```
+
+Nunca use em produção:
+
+```gradle
+release {
+    signingConfig signingConfigs.debug
+}
+```
+
+---
+
+## Não deixe placeholders de certificado no `gradle.properties`
+
+O arquivo versionado:
+
+```text
+android/gradle.properties
+```
+
+não deve conter valores fictícios como:
+
+```properties
+MYAPP_UPLOAD_STORE_FILE=/caminho/para/sua/upload-keystore.jks
+MYAPP_UPLOAD_KEY_ALIAS=seu-alias
+MYAPP_UPLOAD_STORE_PASSWORD=sua-senha
+MYAPP_UPLOAD_KEY_PASSWORD=sua-senha
+```
+
+Esses placeholders já causaram um build tentar abrir literalmente:
+
+```text
+/caminho/para/sua/upload-keystore.jks
+```
+
+e falhar em:
+
+```text
+:app:validateSigningRelease
+```
+
+As credenciais de Release são fornecidas temporariamente pelo script de build através das propriedades Gradle expostas como variáveis:
+
+```text
+ORG_GRADLE_PROJECT_MYAPP_UPLOAD_STORE_FILE
+ORG_GRADLE_PROJECT_MYAPP_UPLOAD_KEY_ALIAS
+ORG_GRADLE_PROJECT_MYAPP_UPLOAD_STORE_PASSWORD
+ORG_GRADLE_PROJECT_MYAPP_UPLOAD_KEY_PASSWORD
+```
+
+As senhas não devem ser commitadas.
+
+---
+
+## Arquivo da chave de upload
+
+A chave privada deve permanecer fora do repositório.
+
+Exemplo:
+
+```text
+~/keys/controlbit/controlbit-upload.jks
+```
+
+ou:
+
+```text
+~/Documentos/keys/controlbit/controlbit-upload.jks
+```
+
+Nunca faça commit de:
+
+```text
+*.jks
+*.keystore
+*.p12
+*.pem privado
+senhas
+credentials.json
+```
+
+O certificado público `.pem`, quando necessário para um reset da Upload Key, não contém a chave privada, mas ainda assim deve ser tratado como artefato operacional e não precisa ficar no repositório do aplicativo.
+
+---
+
+## Validar uma keystore antes do build
+
+Para consultar o certificado:
 
 ```bash
-keytool -genkeypair \
-  -v \
-  -storetype PKCS12 \
-  -keystore controlbit-upload-key.keystore \
+keytool -list -v \
+  -keystore /caminho/para/controlbit-upload.jks \
+  -alias controlbit-upload
+```
+
+Procure:
+
+```text
+SHA1: XX:XX:XX:...
+```
+
+Esse SHA-1 deve corresponder ao certificado da **chave de upload** aceito no Google Play Console.
+
+Não confunda com a chave de debug:
+
+```text
+android/app/debug.keystore
+```
+
+nem com o certificado da chave de assinatura do app exibido separadamente pelo Play App Signing.
+
+---
+
+## Gerar ou redefinir uma Upload Key
+
+Se a chave de upload original for perdida e o aplicativo estiver no Play App Signing, uma nova chave de upload pode ser criada e o certificado público pode ser enviado em uma solicitação de redefinição da Upload Key no Google Play Console.
+
+Exemplo de criação:
+
+```bash
+keytool -genkeypair -v \
+  -keystore controlbit-upload.jks \
   -alias controlbit-upload \
   -keyalg RSA \
   -keysize 2048 \
   -validity 10000
 ```
 
-> Não copie a senha real para este README.
+Exporte somente o certificado público:
 
-Mantenha o arquivo:
-
-```text
-*.keystore
-*.jks
+```bash
+keytool -export -rfc \
+  -keystore controlbit-upload.jks \
+  -alias controlbit-upload \
+  -file upload_certificate.pem
 ```
 
-fora do Git.
-
-O fluxo de produção deve ser:
+Arquivos:
 
 ```text
-keystore privado
-      ↓
-signingConfig de Release
-      ↓
-./gradlew bundleRelease
-      ↓
-app-release.aab assinado
-      ↓
-Google Play
+controlbit-upload.jks
+        ↓
+CHAVE PRIVADA
+        ↓
+fica protegida com a equipe
+
+upload_certificate.pem
+        ↓
+CERTIFICADO PÚBLICO
+        ↓
+pode ser enviado ao Google durante o reset
 ```
 
-A documentação oficial do Expo mostra a configuração de variáveis Gradle e `signingConfig` para builds locais:
+Depois que o Google aceitar a nova Upload Key, todos os AABs seguintes precisam ser assinados com a chave privada correspondente ao novo certificado cadastrado.
 
-```text
-https://docs.expo.dev/guides/local-app-production/
-```
-
-A documentação oficial do Android sobre assinatura:
+Referência:
 
 ```text
 https://developer.android.com/studio/publish/app-signing
 ```
 
-### Segredos do Gradle
+---
 
-Evite colocar senhas diretamente em arquivos versionados.
+## Script oficial interno para gerar o AAB
 
-Prefira, conforme o ambiente:
+O projeto utiliza:
 
 ```text
-~/.gradle/gradle.properties
+build-android-release.sh
 ```
 
-ou um sistema de secrets do CI/CD.
+na raiz do repositório para automatizar o build Android de produção.
 
-Nunca faça commit de:
+Ele deve:
+
+1. validar Java, `keytool`, Gradle Wrapper e estrutura do projeto;
+2. solicitar o caminho da keystore;
+3. solicitar alias e senhas sem exibi-las no terminal;
+4. extrair o SHA-1 da keystore;
+5. solicitar o SHA-1 esperado da chave de upload do Google Play;
+6. cancelar o build se os certificados forem diferentes;
+7. fornecer as credenciais ao Gradle apenas durante o processo;
+8. executar `:app:signingReport`;
+9. confirmar que a variante `release` usa a keystore esperada;
+10. remover caches nativos antigos sem depender de `./gradlew clean`;
+11. executar `generateCodegenArtifactsFromSchema`;
+12. gerar `app:bundleRelease`;
+13. ler o certificado do AAB final;
+14. confirmar que Keystore → Gradle → AAB usam o mesmo SHA-1;
+15. limpar as variáveis sensíveis ao encerrar.
+
+Antes do primeiro uso:
+
+```bash
+chmod +x build-android-release.sh
+```
+
+Para gerar o AAB:
+
+```bash
+./build-android-release.sh
+```
+
+Não execute diretamente:
+
+```bash
+cd android
+./gradlew app:bundleRelease
+```
+
+para o fluxo normal de publicação, pois isso ignora as validações adicionais do script e exige que as propriedades de assinatura já estejam configuradas manualmente na sessão.
+
+---
+
+## Build em outra máquina
+
+A compilação pode ser realizada em outro computador da equipe quando a máquina principal não tiver recursos suficientes.
+
+A máquina de build precisa ter:
 
 ```text
-keystore
-senha do keystore
-key alias secreto
-key password
-credentials.json
+código atualizado
+dependências instaladas
+JDK configurado
+Android SDK configurado
+keystore de upload
+script build-android-release.sh
+```
+
+Fluxo:
+
+```text
+git clone / git pull
+        ↓
+npm ci
+        ↓
+receber a keystore por canal seguro
+        ↓
+./build-android-release.sh
+        ↓
+validar SHA-1
+        ↓
+gerar app-release.aab
+        ↓
+copiar somente o AAB necessário
+```
+
+Se a máquina não for uma estação oficial de releases, remova a cópia da keystore e qualquer credencial operacional depois que o artefato tiver sido validado.
+
+Não envie a chave privada por commit, issue, chat público ou outro canal sem proteção adequada.
+
+---
+
+## Saída esperada
+
+Quando o processo terminar corretamente:
+
+```text
+android/app/build/outputs/bundle/release/app-release.aab
+```
+
+Antes do upload, o script deve confirmar conceitualmente:
+
+```text
+Keystore
+   │
+   └── SHA-1 correto
+
+Gradle release
+   │
+   └── SHA-1 correto
+
+app-release.aab
+   │
+   └── SHA-1 correto
+
+Google Play — Upload Key
+   │
+   └── mesmo certificado
+```
+
+O certificado do AAB também pode ser verificado manualmente:
+
+```bash
+keytool -printcert \
+  -jarfile android/app/build/outputs/bundle/release/app-release.aab
+```
+
+---
+
+## Versionamento obrigatório para Google Play
+
+Cada upload deve utilizar um `versionCode` **maior que qualquer valor já enviado anteriormente**.
+
+Exemplo no:
+
+```text
+android/app/build.gradle
+```
+
+```gradle
+defaultConfig {
+    applicationId 'com.dejesusdev.controlbit'
+    minSdkVersion rootProject.ext.minSdkVersion
+    targetSdkVersion rootProject.ext.targetSdkVersion
+
+    versionCode 2
+    versionName "1.0.1"
+}
+```
+
+Conceitualmente:
+
+```text
+versionCode 1 → já enviado
+versionCode 2 → próxima versão
+versionCode 3 → versão seguinte
+...
+```
+
+O Google Play não permite reutilizar um `versionCode`.
+
+O `versionName` é a versão legível para o usuário; o `versionCode` é o inteiro interno de atualização.
+
+Como o projeto usa Expo Prebuild, mantenha também as configurações equivalentes no `app.json` quando aplicável, para que uma regeneração dos arquivos nativos não reverta o package/versionamento.
+
+---
+
+## Fluxo de publicação validado
+
+```text
+applicationId
+com.dejesusdev.controlbit
+        │
+        ▼
+incrementar versionCode
+        │
+        ▼
+keystore privada de upload
+        │
+        ▼
+./build-android-release.sh
+        │
+        ├── valida SHA-1 da keystore
+        ├── valida signingReport
+        ├── prepara Codegen/CMake
+        ├── gera bundleRelease
+        └── valida SHA-1 do AAB
+        │
+        ▼
+app-release.aab
+        │
+        ▼
+Google Play Console
+```
+
+Referências:
+
+```text
+https://docs.expo.dev/guides/local-app-production/
+https://developer.android.com/studio/publish/app-signing
+https://developer.android.com/studio/publish/versioning
 ```
 
 ---
@@ -2300,9 +2722,11 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ### Release APK
 
+Quando as credenciais de Release estiverem carregadas:
+
 ```bash
 cd android
-./gradlew assembleRelease
+./gradlew app:assembleRelease
 ```
 
 Saída:
@@ -2311,18 +2735,27 @@ Saída:
 app/build/outputs/apk/release/app-release.apk
 ```
 
-### Release AAB
+Antes de distribuir, confirme a variante `release` com:
 
 ```bash
-cd android
-./gradlew bundleRelease
+./gradlew :app:signingReport
+```
+
+### Release AAB para Google Play
+
+Fluxo recomendado:
+
+```bash
+./build-android-release.sh
 ```
 
 Saída:
 
 ```text
-app/build/outputs/bundle/release/app-release.aab
+android/app/build/outputs/bundle/release/app-release.aab
 ```
+
+O script valida a Upload Key antes e depois da compilação.
 
 ### Instalar Release APK
 
@@ -2330,11 +2763,22 @@ app/build/outputs/bundle/release/app-release.aab
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-### Limpar Gradle
+### Limpeza nativa segura
+
+Quando houver inconsistência de CMake/Codegen:
 
 ```bash
-./gradlew clean
+cd android
+
+rm -rf app/.cxx
+rm -rf .cxx
+rm -rf app/build
+rm -rf build
+
+./gradlew generateCodegenArtifactsFromSchema
 ```
+
+Evite usar `./gradlew clean` como passo automático do fluxo de Release.
 
 ---
 
@@ -3064,17 +3508,26 @@ cd android
 
 ## Quero enviar para Google Play
 
-Configure assinatura de produção e execute:
+Antes do build:
+
+```text
+applicationId = com.dejesusdev.controlbit
+versionCode   = maior que o último valor enviado
+Upload Key    = certificado aceito pelo Google Play
+```
+
+Execute na raiz:
 
 ```bash
-cd android
-./gradlew bundleRelease
+./build-android-release.sh
 ```
+
+O script valida a keystore, a assinatura Gradle e o certificado do AAB final.
 
 Resultado:
 
 ```text
-app/build/outputs/bundle/release/app-release.aab
+android/app/build/outputs/bundle/release/app-release.aab
 ```
 
 ---
@@ -3139,26 +3592,26 @@ Antes de publicar uma nova versão, revise:
 ```text
 expo.version
 android.versionCode
+android.package / applicationId
 ios.buildNumber
 ```
 
-Atualmente o `app.json` define:
+Para o aplicativo Android já cadastrado no Google Play, o identificador deve permanecer:
 
-```json
-{
-  "expo": {
-    "version": "1.0.0"
-  }
-}
+```text
+com.dejesusdev.controlbit
 ```
 
-Para builds de loja, recomenda-se manter também valores explícitos e crescentes, por exemplo:
+O `versionCode` precisa ser um inteiro maior que qualquer código já utilizado no Play Console.
+
+Exemplo:
 
 ```json
 {
   "expo": {
-    "version": "1.1.0",
+    "version": "1.0.1",
     "android": {
+      "package": "com.dejesusdev.controlbit",
       "versionCode": 2
     },
     "ios": {
@@ -3173,13 +3626,32 @@ Conceitualmente:
 ```text
 version
 → versão exibida ao usuário
-→ ex.: 1.1.0
+→ ex.: 1.0.1
 
 android.versionCode
-→ inteiro crescente por release Android
+→ inteiro crescente a cada upload no Google Play
+→ não pode ser reutilizado
+
+android.package / applicationId
+→ identidade do aplicativo
+→ deve permanecer com.dejesusdev.controlbit para atualizar o app existente
 
 ios.buildNumber
 → build crescente por release iOS
+```
+
+No projeto Android nativo, confirme também:
+
+```bash
+grep -n "applicationId\|versionCode\|versionName" android/app/build.gradle
+```
+
+Exemplo esperado:
+
+```text
+applicationId 'com.dejesusdev.controlbit'
+versionCode 2
+versionName "1.0.1"
 ```
 
 Como o projeto usa Expo Prebuild, prefira guardar configurações persistentes no:
@@ -3188,7 +3660,7 @@ Como o projeto usa Expo Prebuild, prefira guardar configurações persistentes n
 app.json
 ```
 
-quando houver suporte para essa propriedade, evitando depender apenas de mudanças manuais em arquivos gerados.
+quando houver suporte para essa propriedade, evitando que um `prebuild` reverta mudanças feitas apenas em arquivos nativos.
 
 ---
 
@@ -3201,7 +3673,12 @@ Antes de compartilhar um APK, AAB ou IPA:
 - [ ] Versão revisada.
 - [ ] Build gerado em modo correto.
 - [ ] Assinatura verificada.
-- [ ] Nenhum keystore/certificado/senha foi commitado.
+- [ ] SHA-1 da keystore corresponde à Upload Key cadastrada no Google Play.
+- [ ] SHA-1 do AAB final corresponde à mesma Upload Key.
+- [ ] `applicationId` permanece `com.dejesusdev.controlbit`.
+- [ ] `versionCode` é maior que qualquer código já enviado ao Google Play.
+- [ ] Build de publicação foi gerado por `./build-android-release.sh`.
+- [ ] Nenhum keystore/certificado privado/senha foi commitado.
 - [ ] Aplicativo instalado em dispositivo físico.
 - [ ] Home abre corretamente.
 - [ ] Controle básico funciona.
@@ -3962,19 +4439,25 @@ npx expo start -c
 
 ## Limpar build Android
 
+Para desenvolvimento comum, evite usar `./gradlew clean` como primeira opção neste projeto, pois a New Architecture pode acionar a limpeza nativa do CMake sobre diretórios de Codegen ausentes.
+
 Se a pasta `android/` já existir:
 
 ```bash
 cd android
-./gradlew clean
+
+rm -rf app/.cxx
+rm -rf .cxx
+rm -rf app/build
+rm -rf build
+
+./gradlew generateCodegenArtifactsFromSchema
+
 cd ..
-```
-
-Depois:
-
-```bash
 npm run device
 ```
+
+Se o problema estiver relacionado a mudanças de plugins Expo, permissões ou dependências nativas, considere também `npx expo prebuild --clean`, lembrando que ele recria os diretórios nativos.
 
 ## Recriar projeto Android
 
@@ -3984,6 +4467,117 @@ Quando o projeto nativo ficar inconsistente:
 npx expo prebuild --clean
 npm run device
 ```
+
+## `validateSigningRelease` procura `/caminho/para/sua/upload-keystore.jks`
+
+Se aparecer:
+
+```text
+Keystore file '/caminho/para/sua/upload-keystore.jks' not found
+for signing config 'release'
+```
+
+há um placeholder de assinatura sendo lido pelo Gradle.
+
+Remova do:
+
+```text
+android/gradle.properties
+```
+
+valores como:
+
+```properties
+MYAPP_UPLOAD_STORE_FILE=/caminho/para/sua/upload-keystore.jks
+MYAPP_UPLOAD_KEY_ALIAS=seu-alias
+MYAPP_UPLOAD_STORE_PASSWORD=...
+MYAPP_UPLOAD_KEY_PASSWORD=...
+```
+
+Depois execute o fluxo oficial:
+
+```bash
+./build-android-release.sh
+```
+
+O script fornece as credenciais de forma temporária.
+
+## `externalNativeBuildCleanRelease` falha com `generated/source/codegen/jni`
+
+Se o erro mencionar:
+
+```text
+GLOB mismatch
+add_subdirectory
+generated/source/codegen/jni
+externalNativeBuildCleanRelease
+```
+
+não insista em:
+
+```bash
+./gradlew clean
+```
+
+Remova os artefatos nativos diretamente:
+
+```bash
+cd android
+
+rm -rf app/.cxx
+rm -rf .cxx
+rm -rf app/build
+rm -rf build
+
+./gradlew generateCodegenArtifactsFromSchema
+```
+
+Depois retorne à raiz e gere a Release com:
+
+```bash
+./build-android-release.sh
+```
+
+## Google Play informa `versionCode` já utilizado
+
+Cada upload precisa de um código maior.
+
+Exemplo:
+
+```gradle
+versionCode 2
+versionName "1.0.1"
+```
+
+No upload seguinte:
+
+```gradle
+versionCode 3
+```
+
+Nunca reutilize um `versionCode` já enviado, mesmo que a versão anterior não tenha chegado à produção.
+
+## Google Play exige `com.dejesusdev.controlbit`
+
+O cadastro existente no Play Console pertence a:
+
+```text
+com.dejesusdev.controlbit
+```
+
+Portanto, para atualizar esse aplicativo:
+
+```gradle
+applicationId 'com.dejesusdev.controlbit'
+```
+
+Um AAB com:
+
+```text
+com.dogomaker.controlbit
+```
+
+representa outro aplicativo e não pode atualizar o cadastro existente.
 
 ## HC-05 / HC-06 não aparece
 
@@ -4023,13 +4617,26 @@ npx expo prebuild --clean
 npm run device
 ```
 
-Se necessário:
+Se o erro envolver CMake, `externalNativeBuildCleanRelease`, `GLOB mismatch` ou diretórios `generated/source/codegen/jni`, use a limpeza nativa segura:
 
 ```bash
 cd android
-./gradlew clean
+
+rm -rf app/.cxx
+rm -rf .cxx
+rm -rf app/build
+rm -rf build
+
+./gradlew generateCodegenArtifactsFromSchema
+
 cd ..
 npm run device
+```
+
+Para um AAB de publicação, volte à raiz e execute:
+
+```bash
+./build-android-release.sh
 ```
 
 ---
@@ -4473,6 +5080,8 @@ Não adicione ao repositório:
 - arquivos `.env` contendo segredos.
 
 Caso um keystore de produção seja criado, mantenha-o fora do Git e use um gerenciador de segredos apropriado.
+
+No fluxo local de Release, `build-android-release.sh` fornece as credenciais ao Gradle apenas durante a execução e limpa as variáveis sensíveis ao terminar. Não substitua esse mecanismo por senhas versionadas em `android/gradle.properties`.
 
 ---
 
