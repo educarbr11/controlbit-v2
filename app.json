@@ -2,7 +2,7 @@
   "expo": {
     "name": "controlbit",
     "slug": "controlbit",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -28,6 +28,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.dejesusdev.controlbit",
+      "versionCode": 2,
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
