@@ -23,6 +23,7 @@ interface Props {
   onCommand: (cmd: string) => void;
   onStop: () => void;
   buttonSize?: number;
+  disabled?: boolean;
 }
 
 type Direction = 'up' | 'down' | 'left' | 'right' | 'center';
@@ -37,6 +38,7 @@ interface DPadButtonProps {
   onStart: (cmd: string) => void;
   onEnd: () => void;
   size?: number;
+  disabled?: boolean;
 }
 
 const BORDER_RADIUS: Record<Direction, object> = {
@@ -79,6 +81,7 @@ function DPadButton({
   onStart,
   onEnd,
   size = 102,
+  disabled = false,
 }: DPadButtonProps) {
   const pressed = useSharedValue(0);
   const [isActive, setIsActive] = useState(false);
@@ -136,6 +139,7 @@ function DPadButton({
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           activeOpacity={1}
+          disabled={disabled}
           style={[
             {
               width: SIZE,
@@ -146,6 +150,7 @@ function DPadButton({
               alignItems: 'center',
               justifyContent: 'center',
               overflow: 'hidden',
+              opacity: disabled ? 0.5 : 1,
             },
             radiusStyle,
           ]}
@@ -172,7 +177,7 @@ function DPadButton({
   );
 }
 
-export default function ControlPad({ commands, onCommand, onStop, buttonSize = 102 }: Props) {
+export default function ControlPad({ commands, onCommand, onStop, buttonSize = 102, disabled = false }: Props) {
   const [active, setActive] = useState<string | null>(null);
 
   const handleStart = (cmd: string) => {
@@ -201,6 +206,7 @@ export default function ControlPad({ commands, onCommand, onStop, buttonSize = 1
           icon={<ArrowUp size={iconSize} />}
           onStart={handleStart}
           onEnd={handleEnd}
+          disabled={disabled}
         />
 
         {/* Middle row */}
@@ -214,6 +220,7 @@ export default function ControlPad({ commands, onCommand, onStop, buttonSize = 1
             icon={<ArrowLeft size={iconSize} />}
             onStart={handleStart}
             onEnd={handleEnd}
+            disabled={disabled}
           />
 
           {/* Center — Horn */}
@@ -226,6 +233,7 @@ export default function ControlPad({ commands, onCommand, onStop, buttonSize = 1
             icon={<Star size={iconSize} fill="#fff" color="#fff" strokeWidth={2} />}
             onStart={handleStart}
             onEnd={() => setActive(null)}
+            disabled={disabled}
           />
 
           {/* Right */}
@@ -236,6 +244,7 @@ export default function ControlPad({ commands, onCommand, onStop, buttonSize = 1
             icon={<ArrowRight size={iconSize} />}
             onStart={handleStart}
             onEnd={handleEnd}
+            disabled={disabled}
           />
 
         </View>
@@ -248,6 +257,7 @@ export default function ControlPad({ commands, onCommand, onStop, buttonSize = 1
           icon={<ArrowDown size={iconSize} />}
           onStart={handleStart}
           onEnd={handleEnd}
+          disabled={disabled}
         />
 
       </View>

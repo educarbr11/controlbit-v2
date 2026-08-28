@@ -17,6 +17,7 @@ import {
   Terminal,
   Star,
   Settings,
+  Smartphone,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useBluetooth } from '../../context/BluetoothContext';
@@ -27,15 +28,46 @@ import BluetoothStatusButton from '../../components/BluetoothButton';
 import { BasicCommandStorage, BasicCommands, DEFAULT_BASIC_COMMANDS } from '../../services/basicCommandStorage';
 import BasicCommandSettingsModal from '../../components/BasicCommandSettingsModal';
 import { useScreenOrientation } from '../../hooks/useScreenOrientation';
+import { useAccelerometer } from '../../hooks/useAccelerometer';
+import MicrobitTiltVisual from '../../components/MicrobitTiltVisual';
 import MobileRotateIcon from '../../components/icons/MobileRotateIcon';
 
+// Direção do tilt com histerese: precisa passar de ENTER_THRESHOLD para "entrar"
+// numa direção e voltar abaixo de EXIT_THRESHOLD para "sair" (evita oscilação na borda).
+const TILT_ENTER_THRESHOLD = 0.35;
+const TILT_EXIT_THRESHOLD = 0.2;
+
+type TiltDirection = 'up' | 'down' | 'left' | 'right' | null;
+
+function getTiltDirection(
+  x: number,
+  y: number,
+  isLandscape: boolean,
+  current: TiltDirection,
+): TiltDirection {
+  // Em portrait, inclinar o topo do celular para frente/trás move no eixo Y;
+  // inclinar para os lados move no eixo X. Em landscape a tela girou 90°, então
+  // os eixos físicos do acelerômetro trocam de papel.
+  const forwardAxis = isLandscape ? x : y;
+  const sideAxis = isLandscape ? -y : -x;
+
+  const threshold = (dir: TiltDirection) =>
+    dir === current ? TILT_EXIT_THRESHOLD : TILT_ENTER_THRESHOLD;
+
+  if (forwardAxis <= -threshold('up')) return 'up';
+  if (forwardAxis >= threshold('down')) return 'down';
+  if (sideAxis <= -threshold('left')) return 'left';
+  if (sideAxis >= threshold('right')) return 'right';
+  return null;
+}
+
 const CMD_COLOR_MAP: Record<string, string> = {
-  up: '#00C851',
-  down: '#FF2D2D',
-  left: '#0066FF',
-  right: '#0066FF',
-  horn: '#FF6B00',
-  stop: '#7B2FFF',
+  F: '#00C851',
+  T: '#FF2D2D',
+  E: '#0066FF',
+  D: '#0066FF',
+  B: '#FF6B00',
+  P: '#7B2FFF',
 };
 
 function getCmdColor(cmd: string): string {
@@ -54,6 +86,7 @@ export default function BasicControl() {
   const [commands, setCommands] = useState<BasicCommands>(DEFAULT_BASIC_COMMANDS);
   const [showSettings, setShowSettings] = useState(false);
   const { orientation, toggle, isLandscape } = useScreenOrientation('portrait');
+  const [tiltEnabled, setTiltEnabled] = useState(false);
 
   // Ocultar tabs no landscape
   useEffect(() => {
@@ -128,6 +161,33 @@ export default function BasicControl() {
     setTimeout(() => setActiveCmd(''), 200);
   };
 
+  // ── Controle por inclinação (acelerômetro) ────────────────────────────────
+  const { x: tiltX, y: tiltY } = useAccelerometer(tiltEnabled);
+  const [tiltDirection, setTiltDirection] = useState<TiltDirection>(null);
+
+  useEffect(() => {
+    if (!tiltEnabled) return;
+    const nextDirection = getTiltDirection(tiltX, tiltY, isLandscape, tiltDirection);
+    if (nextDirection === tiltDirection) return;
+    setTiltDirection(nextDirection);
+    if (nextDirection) {
+      handleCommand(commands[nextDirection]);
+    } else {
+      handleStop();
+    }
+  }, [tiltX, tiltY, tiltEnabled, isLandscape, tiltDirection, commands, handleCommand]);
+
+  const toggleTilt = useCallback(() => {
+    setTiltEnabled(prev => {
+      const next = !prev;
+      if (!next && tiltDirection) {
+        setTiltDirection(null);
+        handleStop();
+      }
+      return next;
+    });
+  }, [handleStop, tiltDirection]);
+
   const txBgColor = activeCmd ? getCmdColor(activeCmd) : '#E5E0D5';
 
   return (
@@ -165,6 +225,23 @@ export default function BasicControl() {
               {t('basic_header_sub')}
             </Text>
           </View>
+
+          {/* Tilt (acelerômetro) button */}
+          <TouchableOpacity
+            className="w-10 h-10 border-[3px] border-[#1A1A1A] items-center justify-center"
+            style={{
+              backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
+              shadowColor: '#1A1A1A',
+              shadowOffset: { width: 3, height: 3 },
+              shadowOpacity: 1,
+              shadowRadius: 0,
+              elevation: 6,
+            }}
+            onPress={toggleTilt}
+            activeOpacity={0.8}
+          >
+            <Smartphone size={18} color="#1A1A1A" strokeWidth={2.5} />
+          </TouchableOpacity>
 
           {/* Settings button */}
           <TouchableOpacity
@@ -241,7 +318,11 @@ export default function BasicControl() {
               </View>
             </View>
             <View className="flex-1 items-center justify-center bg-[#F0EBE0]">
-              <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} buttonSize={90} />
+              {tiltEnabled ? (
+                <MicrobitTiltVisual x={tiltX} y={tiltY} direction={tiltDirection} isLandscape={isLandscape} size={150} />
+              ) : (
+                <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} buttonSize={90} />
+              )}
             </View>
           </View>
 
@@ -322,8 +403,12 @@ export default function BasicControl() {
                 ))}
               </View>
             </View>
-            <View className="items-center justify-center bg-[#F0EBE0]">
-              <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} />
+            <View className="items-center justify-center bg-[#F0EBE0]" style={{ paddingVertical: tiltEnabled ? 20 : 0 }}>
+              {tiltEnabled ? (
+                <MicrobitTiltVisual x={tiltX} y={tiltY} direction={tiltDirection} isLandscape={isLandscape} />
+              ) : (
+                <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} />
+              )}
             </View>
           </View>
 
@@ -415,6 +500,20 @@ export default function BasicControl() {
             }}
           >
             <Settings size={20} color="#1A1A1A" strokeWidth={2.5} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={toggleTilt}
+            className="w-12 h-12 border-[3px] border-[#1A1A1A] items-center justify-center"
+            style={{
+              backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
+              shadowColor: '#1A1A1A',
+              shadowOffset: { width: 4, height: 4 },
+              shadowOpacity: 1,
+              shadowRadius: 0,
+              elevation: 8,
+            }}
+          >
+            <Smartphone size={20} color="#1A1A1A" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
       )}

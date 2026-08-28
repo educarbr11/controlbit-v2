@@ -134,6 +134,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
         name: d.name || "HC-05 / HC-06",
         rssi: -50,
         type: "classic" as const,
+        bonded: true,
       }));
       if (classicList.length > 0) {
         setScannedDevices(classicList);
@@ -153,6 +154,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
             name: scanned.name!,
             rssi: scanned.rssi ?? -100,
             type: "ble" as const,
+            bonded: false,
           }];
         });
       }
