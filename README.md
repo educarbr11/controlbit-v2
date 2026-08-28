@@ -4341,6 +4341,72 @@ npm run device
 
 ---
 
+# Deploy da versão Web (produção)
+
+A versão web (Expo Web + `react-native-web`, com Bluetooth via Web Bluetooth API — veja a seção "Bluetooth" mais abaixo) pode ser publicada como um site estático comum, acessível por qualquer pessoa em um link HTTPS. **HTTPS não é opcional aqui**: o Web Bluetooth só funciona em contexto seguro (HTTPS ou `localhost`).
+
+## Build local do site estático
+
+```bash
+npm run build:web
+```
+
+Isso executa `expo export -p web` e gera a pasta `dist/` com um site 100% estático (HTML, JS, CSS e assets) — pode ser testado localmente com qualquer servidor estático, por exemplo:
+
+```bash
+npx serve dist
+```
+
+## Deploy na Vercel (recomendado)
+
+O repositório já inclui um [`vercel.json`](vercel.json) configurado (build command, diretório de saída e rewrite de SPA para as rotas do React Navigation).
+
+1. Acesse [vercel.com](https://vercel.com) e crie uma conta gratuita (pode entrar direto com o login do GitHub).
+2. Clique em **Add New → Project** e importe o repositório `educarbr11/controlbit-v2`.
+3. Selecione a branch que você quer publicar (ex.: `web`, ou `master` depois de dar merge).
+4. A Vercel detecta o `vercel.json` automaticamente — não precisa configurar build command/output manualmente.
+5. Clique em **Deploy**. Ao final, a Vercel entrega uma URL pública em `https://<algum-nome>.vercel.app`, já em HTTPS.
+
+A partir daí, todo novo `git push` na branch conectada gera um novo deploy automático.
+
+### Domínio próprio (opcional)
+
+Em **Project Settings → Domains**, adicione seu domínio e siga as instruções de DNS (registro `CNAME` ou `A`, conforme o caso) mostradas pela própria Vercel. O certificado HTTPS é emitido automaticamente.
+
+## Deploy no Dokploy (self-hosted)
+
+[Dokploy](https://dokploy.com) é uma alternativa self-hosted à Vercel/Netlify (roda no seu próprio VPS, com Traefik + Let's Encrypt por baixo). O repositório já inclui um [`Dockerfile`](Dockerfile) multi-stage (build do site estático + Nginx servindo o resultado) e o [`docker/nginx.conf`](docker/nginx.conf) com o fallback de SPA.
+
+**Pré-requisito importante:** diferente da Vercel (que dá um domínio `*.vercel.app` de graça), o Dokploy usa Let's Encrypt, que **não emite certificado para IP puro** — você precisa de um domínio (ou subdomínio) próprio apontando para o IP do seu VPS via DNS antes de configurar o HTTPS. Sem HTTPS, o Web Bluetooth não funciona.
+
+Passo a passo:
+
+1. No painel do Dokploy, crie um **Project** (ou use um existente) e dentro dele **Create Application**.
+2. Em **General → Git Provider**, conecte o repositório `educarbr11/controlbit-v2` (via GitHub App do próprio Dokploy) e escolha a branch a publicar (`web`, ou `master` após merge).
+3. Em **Build Type**, selecione **Dockerfile** — o Dokploy já vai detectar o `Dockerfile` na raiz do repositório (Docker Path: `Dockerfile`, Docker Context Path: `.`).
+4. Em **Domains**, adicione seu domínio/subdomínio, porta do container **80** e ative **HTTPS** (o Dokploy emite o certificado Let's Encrypt automaticamente depois que o DNS estiver apontando corretamente).
+5. Clique em **Deploy**. O Dokploy builda a imagem (roda `npm ci` + `npm run build:web` dentro do container) e sobe o Nginx servindo `dist/`.
+
+A partir daí, um novo `git push` na branch conectada dispara um novo build/deploy automaticamente (webhook do Dokploy), do mesmo jeito que a Vercel.
+
+> Para testar o `Dockerfile` localmente antes de conectar ao Dokploy: `docker build -t controlbit-web . && docker run -p 8080:80 controlbit-web` e acesse `http://localhost:8080`.
+
+## Alternativas de hospedagem
+
+Qualquer host de site estático com HTTPS serve, desde que sirva `dist/index.html` como fallback para rotas não encontradas (SPA fallback) — necessário porque a navegação (`@react-navigation`) é toda client-side:
+
+- **Netlify**: build command `npm run build:web`, publish directory `dist`, e uma regra de redirect `/* /index.html 200` em `netlify.toml` ou `_redirects`.
+- **Cloudflare Pages** / **GitHub Pages**: mesmo princípio — build estático + fallback de SPA. No GitHub Pages, como o site fica em um subcaminho (`usuario.github.io/repo`), é necessário também configurar `baseUrl` no Metro/Expo, o que dá mais trabalho do que Vercel/Netlify.
+- **Servidor próprio (VPS/Nginx) sem Dokploy**: sirva o conteúdo de `dist/` diretamente e configure `try_files $uri /index.html;` no Nginx, com HTTPS via Let's Encrypt/Certbot manual.
+
+## Limitações a lembrar em produção
+
+- **Bluetooth Classic (HC-05/HC-06) nunca funciona na web** — apenas micro:bit e módulos BLE (HM-10/HC-08). Veja a seção de [Troubleshooting da versão web](#versão-web-navegador-não-suportado-no-chromelinux) para detalhes.
+- No **Linux**, quem acessar pelo Chrome/Edge precisa habilitar `chrome://flags/#enable-experimental-web-platform-features` manualmente — isso é uma limitação do navegador, não do seu deploy.
+- O controle por inclinação (acelerômetro) fica oculto na web, já que desktops não têm esse sensor.
+
+---
+
 # Troubleshooting
 
 ## `android/` ou `ios/` não existe ao tentar gerar Release
