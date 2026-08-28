@@ -16,6 +16,25 @@ const UART_RX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 const HM10_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const HM10_CHAR_UUID    = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
+// Fallback manual (sem depender do global `Buffer`, indisponível por padrão no Hermes)
+// para engines que não expõem `btoa`.
+const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function toBase64(input: string): string {
+  let output = "";
+  for (let i = 0; i < input.length; i += 3) {
+    const c1 = input.charCodeAt(i);
+    const c2 = input.charCodeAt(i + 1);
+    const c3 = input.charCodeAt(i + 2);
+    const hasC2 = i + 1 < input.length;
+    const hasC3 = i + 2 < input.length;
+    output += BASE64_CHARS[c1 >> 2];
+    output += BASE64_CHARS[((c1 & 0x03) << 4) | (c2 >> 4 || 0)];
+    output += hasC2 ? BASE64_CHARS[((c2 & 0x0f) << 2) | (c3 >> 6 || 0)] : "=";
+    output += hasC3 ? BASE64_CHARS[c3 & 0x3f] : "=";
+  }
+  return output;
+}
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface BluetoothContextData {
   status: BluetoothStatus;
@@ -29,6 +48,10 @@ interface BluetoothContextData {
   connectToDevice: (device: ScannedDevice) => Promise<void>;
   disconnect: () => Promise<void>;
   sendCommand: (command: string) => Promise<void>;
+  /** Só usado pela versão web (Web Bluetooth API) — sempre null no app nativo. */
+  unsupportedReason?: "no-web-bluetooth" | "insecure-context" | null;
+  /** Só usado pela versão web — sempre null no app nativo (que usa Alert.alert). */
+  lastError?: string | null;
 }
 
 export const BluetoothContext = createContext<BluetoothContextData>(
@@ -263,9 +286,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
       // BLE — base64 via characteristic
       if (!bleRef.current) return;
       const payload =
-        typeof btoa !== "undefined"
-          ? btoa(cmdNL)
-          : Buffer.from(cmdNL).toString("base64");
+        typeof btoa !== "undefined" ? btoa(cmdNL) : toBase64(cmdNL);
 
       const proto = bleProtocolRef.current;
       if (proto === "hm10") {

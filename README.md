@@ -4673,6 +4673,33 @@ Verifique:
 - se o firmware expõe o serviço esperado;
 - se o módulo utiliza HM-10 FFE0/FFE1 ou UART compatível.
 
+## Versão web: "Navegador não suportado" no Chrome/Linux
+
+O Web Bluetooth funciona nativamente (sem flag) no Chrome/Edge do Windows, macOS, ChromeOS e Android. No **Linux**, porém, o recurso ainda é tratado como experimental e vem desativado por padrão — por isso o aviso aparece mesmo em máquinas onde o Bluetooth do sistema operacional funciona normalmente (o Bluetooth nativo do Linux não tem relação com o suporte do Chrome à API Web Bluetooth).
+
+Para habilitar:
+
+```text
+1. Acesse chrome://flags/#enable-experimental-web-platform-features
+2. Ative a flag ("Enabled")
+3. Reinicie o Chrome completamente
+4. Acesse novamente http://localhost:8081 (ou o domínio HTTPS da versão publicada)
+```
+
+Depois disso, `navigator.bluetooth` passa a existir e o botão de conectar abre o seletor nativo do navegador.
+
+## Versão web: micro:bit não aparece na lista de dispositivos
+
+Diferente do app nativo (que descobre os serviços após conectar), o Web Bluetooth só mostra no seletor os dispositivos cujo pacote de anúncio (advertising) corresponda a um filtro declarado — e o micro:bit normalmente **não** anuncia o UUID do serviço UART (128 bits) nesse pacote, só o nome. Por isso o app filtra o micro:bit pelo prefixo do nome (`BBC micro:bit ...`) em vez do serviço.
+
+Se mesmo assim ele não aparecer:
+
+- confirme que o micro:bit está com o Bluetooth ativo e anunciando (LED de status conforme o firmware do MakeCode);
+- confirme que ele não está pareado/conectado a outro dispositivo (celular, outro navegador) no momento;
+- aproxime o computador do micro:bit — o alcance do BLE via adaptador de notebook costuma ser mais curto que o de um celular.
+
+Módulos HM-10/HC-08 são filtrados pelo serviço `0xFFE0`, que costuma ser anunciado normalmente. **HC-05/HC-06 (Bluetooth Classic/SPP) não aparecem nunca na versão web** — o navegador não suporta esse protocolo; use um módulo BLE ou o aplicativo mobile.
+
 ## Build falha após instalar dependência nativa
 
 Tente:

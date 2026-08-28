@@ -94,6 +94,17 @@ export const translations = {
         preset_btn_base_esq: 'Base ←',
         preset_btn_abrir: 'Abrir',
         preset_btn_fechar: 'Fechar',
+
+        // Web Bluetooth
+        web_bt_unsupported_title: 'Navegador não suportado',
+        web_bt_unsupported_body: 'Seu navegador não suporta Web Bluetooth. Use Chrome, Edge ou Opera no computador.',
+        web_bt_insecure_context_title: 'Conexão insegura',
+        web_bt_insecure_context_body: 'O Web Bluetooth exige uma conexão segura (HTTPS ou localhost).',
+        web_bt_classic_unsupported_title: 'Módulo não compatível com o navegador',
+        web_bt_classic_unsupported_body: 'Módulos HC-05/HC-06 (Bluetooth Classic) não funcionam pelo navegador. Use um micro:bit, HM-10 ou HC-08 (Bluetooth de baixa energia), ou utilize o aplicativo no celular.',
+        web_bt_connect_error_title: 'Erro de conexão',
+        web_bt_connect_error_body: 'Não foi possível conectar ao dispositivo selecionado.',
+        web_bt_ok: 'ENTENDI',
     },
 
     es: {
@@ -189,6 +200,17 @@ export const translations = {
         preset_btn_base_esq: 'Base ←',
         preset_btn_abrir: 'Abrir',
         preset_btn_fechar: 'Cerrar',
+
+        // Web Bluetooth
+        web_bt_unsupported_title: 'Navegador no compatible',
+        web_bt_unsupported_body: 'Tu navegador no soporta Web Bluetooth. Usa Chrome, Edge u Opera en la computadora.',
+        web_bt_insecure_context_title: 'Conexión insegura',
+        web_bt_insecure_context_body: 'Web Bluetooth requiere una conexión segura (HTTPS o localhost).',
+        web_bt_classic_unsupported_title: 'Módulo no compatible con el navegador',
+        web_bt_classic_unsupported_body: 'Los módulos HC-05/HC-06 (Bluetooth Classic) no funcionan desde el navegador. Usa un micro:bit, HM-10 o HC-08 (Bluetooth de baja energía), o utiliza la app en el celular.',
+        web_bt_connect_error_title: 'Error de conexión',
+        web_bt_connect_error_body: 'No se pudo conectar al dispositivo seleccionado.',
+        web_bt_ok: 'ENTENDIDO',
     },
 
     en: {
@@ -284,6 +306,17 @@ export const translations = {
         preset_btn_base_esq: 'Base ←',
         preset_btn_abrir: 'Open',
         preset_btn_fechar: 'Close',
+
+        // Web Bluetooth
+        web_bt_unsupported_title: 'Unsupported browser',
+        web_bt_unsupported_body: 'Your browser does not support Web Bluetooth. Use Chrome, Edge or Opera on desktop.',
+        web_bt_insecure_context_title: 'Insecure connection',
+        web_bt_insecure_context_body: 'Web Bluetooth requires a secure connection (HTTPS or localhost).',
+        web_bt_classic_unsupported_title: 'Module not supported by the browser',
+        web_bt_classic_unsupported_body: 'HC-05/HC-06 (Bluetooth Classic) modules do not work from the browser. Use a micro:bit, HM-10 or HC-08 (Bluetooth Low Energy), or use the mobile app.',
+        web_bt_connect_error_title: 'Connection error',
+        web_bt_connect_error_body: 'Could not connect to the selected device.',
+        web_bt_ok: 'GOT IT',
     },
 } as const satisfies Record<Language, Record<string, string>>;
 

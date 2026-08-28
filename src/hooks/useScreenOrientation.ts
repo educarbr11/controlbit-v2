@@ -13,16 +13,20 @@ export function useScreenOrientation(initial: OrientationMode = 'portrait') {
         return () => {
             ScreenOrientation.lockAsync(
                 ScreenOrientation.OrientationLock.PORTRAIT_UP,
-            );
+            ).catch(() => {});
         };
     }, []);
 
     const applyOrientation = useCallback(async (o: OrientationMode) => {
-        await ScreenOrientation.lockAsync(
-            o === 'landscape'
-                ? ScreenOrientation.OrientationLock.LANDSCAPE
-                : ScreenOrientation.OrientationLock.PORTRAIT_UP,
-        );
+        try {
+            await ScreenOrientation.lockAsync(
+                o === 'landscape'
+                    ? ScreenOrientation.OrientationLock.LANDSCAPE
+                    : ScreenOrientation.OrientationLock.PORTRAIT_UP,
+            );
+        } catch (_) {
+            // Plataforma não suporta travar orientação (ex.: tablet em modo split-screen)
+        }
     }, []);
 
     const toggle = useCallback(async () => {
