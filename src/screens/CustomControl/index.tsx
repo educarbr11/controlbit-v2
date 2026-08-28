@@ -13,6 +13,7 @@ import {
   Animated,
   StyleSheet,
   Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,7 +104,11 @@ export default function CustomControl() {
   const [canvasSize, setCanvasSize] = useState({ width: 300, height: 400 });
 
   // ── Dimensões da tela para landscape full-screen ─────────────────────────────
-  const screenDims = Dimensions.get('screen');
+  // Na web, Dimensions.get('screen') retorna a resolução física do monitor
+  // (não o tamanho da janela/aba do navegador) — usamos useWindowDimensions,
+  // que acompanha o tamanho real da viewport e atualiza ao redimensionar.
+  const windowDims = useWindowDimensions();
+  const screenDims = Platform.OS === 'web' ? windowDims : Dimensions.get('screen');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const isSaving = useRef(false);

@@ -226,22 +226,24 @@ export default function BasicControl() {
             </Text>
           </View>
 
-          {/* Tilt (acelerômetro) button */}
-          <TouchableOpacity
-            className="w-10 h-10 border-[3px] border-[#1A1A1A] items-center justify-center"
-            style={{
-              backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
-              shadowColor: '#1A1A1A',
-              shadowOffset: { width: 3, height: 3 },
-              shadowOpacity: 1,
-              shadowRadius: 0,
-              elevation: 6,
-            }}
-            onPress={toggleTilt}
-            activeOpacity={0.8}
-          >
-            <Smartphone size={18} color="#1A1A1A" strokeWidth={2.5} />
-          </TouchableOpacity>
+          {/* Tilt (acelerômetro) button — indisponível na web (sem sensor de inclinação) */}
+          {Platform.OS !== 'web' && (
+            <TouchableOpacity
+              className="w-10 h-10 border-[3px] border-[#1A1A1A] items-center justify-center"
+              style={{
+                backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
+                shadowColor: '#1A1A1A',
+                shadowOffset: { width: 3, height: 3 },
+                shadowOpacity: 1,
+                shadowRadius: 0,
+                elevation: 6,
+              }}
+              onPress={toggleTilt}
+              activeOpacity={0.8}
+            >
+              <Smartphone size={18} color="#1A1A1A" strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
 
           {/* Settings button */}
           <TouchableOpacity
@@ -501,20 +503,22 @@ export default function BasicControl() {
           >
             <Settings size={20} color="#1A1A1A" strokeWidth={2.5} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={toggleTilt}
-            className="w-12 h-12 border-[3px] border-[#1A1A1A] items-center justify-center"
-            style={{
-              backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
-              shadowColor: '#1A1A1A',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 1,
-              shadowRadius: 0,
-              elevation: 8,
-            }}
-          >
-            <Smartphone size={20} color="#1A1A1A" strokeWidth={2.5} />
-          </TouchableOpacity>
+          {Platform.OS !== 'web' && (
+            <TouchableOpacity
+              onPress={toggleTilt}
+              className="w-12 h-12 border-[3px] border-[#1A1A1A] items-center justify-center"
+              style={{
+                backgroundColor: tiltEnabled ? '#FFD82D' : '#fff',
+                shadowColor: '#1A1A1A',
+                shadowOffset: { width: 4, height: 4 },
+                shadowOpacity: 1,
+                shadowRadius: 0,
+                elevation: 8,
+              }}
+            >
+              <Smartphone size={20} color="#1A1A1A" strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

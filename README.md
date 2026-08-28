@@ -4341,6 +4341,54 @@ npm run device
 
 ---
 
+# Deploy da versão Web (produção)
+
+A versão web (Expo Web + `react-native-web`, com Bluetooth via Web Bluetooth API — veja a seção "Bluetooth" mais abaixo) pode ser publicada como um site estático comum, acessível por qualquer pessoa em um link HTTPS. **HTTPS não é opcional aqui**: o Web Bluetooth só funciona em contexto seguro (HTTPS ou `localhost`).
+
+## Build local do site estático
+
+```bash
+npm run build:web
+```
+
+Isso executa `expo export -p web` e gera a pasta `dist/` com um site 100% estático (HTML, JS, CSS e assets) — pode ser testado localmente com qualquer servidor estático, por exemplo:
+
+```bash
+npx serve dist
+```
+
+## Deploy na Vercel (recomendado)
+
+O repositório já inclui um [`vercel.json`](vercel.json) configurado (build command, diretório de saída e rewrite de SPA para as rotas do React Navigation).
+
+1. Acesse [vercel.com](https://vercel.com) e crie uma conta gratuita (pode entrar direto com o login do GitHub).
+2. Clique em **Add New → Project** e importe o repositório `educarbr11/controlbit-v2`.
+3. Selecione a branch que você quer publicar (ex.: `web`, ou `master` depois de dar merge).
+4. A Vercel detecta o `vercel.json` automaticamente — não precisa configurar build command/output manualmente.
+5. Clique em **Deploy**. Ao final, a Vercel entrega uma URL pública em `https://<algum-nome>.vercel.app`, já em HTTPS.
+
+A partir daí, todo novo `git push` na branch conectada gera um novo deploy automático.
+
+### Domínio próprio (opcional)
+
+Em **Project Settings → Domains**, adicione seu domínio e siga as instruções de DNS (registro `CNAME` ou `A`, conforme o caso) mostradas pela própria Vercel. O certificado HTTPS é emitido automaticamente.
+
+## Alternativas de hospedagem
+
+Qualquer host de site estático com HTTPS serve, desde que sirva `dist/index.html` como fallback para rotas não encontradas (SPA fallback) — necessário porque a navegação (`@react-navigation`) é toda client-side:
+
+- **Netlify**: build command `npm run build:web`, publish directory `dist`, e uma regra de redirect `/* /index.html 200` em `netlify.toml` ou `_redirects`.
+- **Cloudflare Pages** / **GitHub Pages**: mesmo princípio — build estático + fallback de SPA. No GitHub Pages, como o site fica em um subcaminho (`usuario.github.io/repo`), é necessário também configurar `baseUrl` no Metro/Expo, o que dá mais trabalho do que Vercel/Netlify.
+- **Servidor próprio (VPS/Nginx)**: sirva o conteúdo de `dist/` e configure `try_files $uri /index.html;` no Nginx, com HTTPS via Let's Encrypt/Certbot.
+
+## Limitações a lembrar em produção
+
+- **Bluetooth Classic (HC-05/HC-06) nunca funciona na web** — apenas micro:bit e módulos BLE (HM-10/HC-08). Veja a seção de [Troubleshooting da versão web](#versão-web-navegador-não-suportado-no-chromelinux) para detalhes.
+- No **Linux**, quem acessar pelo Chrome/Edge precisa habilitar `chrome://flags/#enable-experimental-web-platform-features` manualmente — isso é uma limitação do navegador, não do seu deploy.
+- O controle por inclinação (acelerômetro) fica oculto na web, já que desktops não têm esse sensor.
+
+---
+
 # Troubleshooting
 
 ## `android/` ou `ios/` não existe ao tentar gerar Release
@@ -4606,6 +4654,33 @@ Verifique:
 - se o dispositivo está conectado a outro celular;
 - se o firmware expõe o serviço esperado;
 - se o módulo utiliza HM-10 FFE0/FFE1 ou UART compatível.
+
+## Versão web: "Navegador não suportado" no Chrome/Linux
+
+O Web Bluetooth funciona nativamente (sem flag) no Chrome/Edge do Windows, macOS, ChromeOS e Android. No **Linux**, porém, o recurso ainda é tratado como experimental e vem desativado por padrão — por isso o aviso aparece mesmo em máquinas onde o Bluetooth do sistema operacional funciona normalmente (o Bluetooth nativo do Linux não tem relação com o suporte do Chrome à API Web Bluetooth).
+
+Para habilitar:
+
+```text
+1. Acesse chrome://flags/#enable-experimental-web-platform-features
+2. Ative a flag ("Enabled")
+3. Reinicie o Chrome completamente
+4. Acesse novamente http://localhost:8081 (ou o domínio HTTPS da versão publicada)
+```
+
+Depois disso, `navigator.bluetooth` passa a existir e o botão de conectar abre o seletor nativo do navegador.
+
+## Versão web: micro:bit não aparece na lista de dispositivos
+
+Diferente do app nativo (que descobre os serviços após conectar), o Web Bluetooth só mostra no seletor os dispositivos cujo pacote de anúncio (advertising) corresponda a um filtro declarado — e o micro:bit normalmente **não** anuncia o UUID do serviço UART (128 bits) nesse pacote, só o nome. Por isso o app filtra o micro:bit pelo prefixo do nome (`BBC micro:bit ...`) em vez do serviço.
+
+Se mesmo assim ele não aparecer:
+
+- confirme que o micro:bit está com o Bluetooth ativo e anunciando (LED de status conforme o firmware do MakeCode);
+- confirme que ele não está pareado/conectado a outro dispositivo (celular, outro navegador) no momento;
+- aproxime o computador do micro:bit — o alcance do BLE via adaptador de notebook costuma ser mais curto que o de um celular.
+
+Módulos HM-10/HC-08 são filtrados pelo serviço `0xFFE0`, que costuma ser anunciado normalmente. **HC-05/HC-06 (Bluetooth Classic/SPP) não aparecem nunca na versão web** — o navegador não suporta esse protocolo; use um módulo BLE ou o aplicativo mobile.
 
 ## Build falha após instalar dependência nativa
 
