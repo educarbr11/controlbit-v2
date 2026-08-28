@@ -10,12 +10,12 @@ export interface BasicCommands {
 }
 
 export const DEFAULT_BASIC_COMMANDS: BasicCommands = {
-  up: 'up',
-  down: 'down',
-  left: 'left',
-  right: 'right',
-  horn: 'horn',
-  stop: 'stop',
+  up: 'F',
+  down: 'T',
+  left: 'E',
+  right: 'D',
+  horn: 'B',
+  stop: 'P',
 };
 
 const STORAGE_KEY = '@dogo_maker_basic_commands';

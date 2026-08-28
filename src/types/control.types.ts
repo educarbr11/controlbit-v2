@@ -29,4 +29,6 @@ export interface ScannedDevice {
   name: string;
   rssi: number;
   type?: 'ble' | 'classic';
+  /** true = já pareado (classic bonded); false = descoberto no scan (novo) */
+  bonded?: boolean;
 }

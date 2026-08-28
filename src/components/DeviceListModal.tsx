@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -9,8 +9,9 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
-import { Bluetooth, BluetoothSearching, BluetoothConnected, X } from 'lucide-react-native';
+import { Bluetooth, BluetoothSearching, BluetoothConnected, Sparkles, X } from 'lucide-react-native';
 import { useBluetooth } from '../context/BluetoothContext';
 import { ScannedDevice } from '../types/control.types';
 import { Colors, FontFamily, Shadow } from '../constants/theme';
@@ -18,6 +19,18 @@ import { Colors, FontFamily, Shadow } from '../constants/theme';
 interface Props {
   onClose: () => void;
 }
+
+// Padrões de nome de dispositivos conhecidos pelo app (case-insensitive)
+const KNOWN_NAME_PATTERNS = [
+  'micro:bit', 'microbit', 'hc-05', 'hc-06', 'hc-08', 'hm-10', 'controlbit',
+];
+
+function isRecognized(name: string): boolean {
+  const n = name.toLowerCase();
+  return KNOWN_NAME_PATTERNS.some((p) => n.includes(p));
+}
+
+type FilterMode = 'todos' | 'novos' | 'pareados';
 
 function RssiBar({ rssi }: { rssi: number }) {
   const strength = Math.max(0, Math.min(100, ((rssi + 100) / 70) * 100));
@@ -43,6 +56,28 @@ export default function DeviceListModal({ onClose }: Props) {
     useBluetooth();
   const isScanning = status === 'scanning';
   const isConnecting = status === 'connecting';
+
+  // Busca + filtro
+  const [search, setSearch] = useState('');
+  const [filterMode, setFilterMode] = useState<FilterMode>('todos');
+
+  const visibleDevices = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    const filtered = scannedDevices.filter((d) => {
+      if (query && !d.name.toLowerCase().includes(query)) return false;
+      if (filterMode === 'novos' && d.bonded) return false;
+      if (filterMode === 'pareados' && !d.bonded) return false;
+      return true;
+    });
+
+    // Reconhecidos-não-pareados primeiro; demais mantêm ordem de descoberta
+    return [...filtered].sort((a, b) => {
+      const aTop = isRecognized(a.name) && !a.bonded ? 1 : 0;
+      const bTop = isRecognized(b.name) && !b.bonded ? 1 : 0;
+      return bTop - aTop;
+    });
+  }, [scannedDevices, search, filterMode]);
 
   // Animação de slide up
   const slideAnim = React.useRef(new Animated.Value(500)).current;
@@ -89,31 +124,42 @@ export default function DeviceListModal({ onClose }: Props) {
     onClose();
   };
 
-  const renderDevice = ({ item, index }: { item: ScannedDevice; index: number }) => (
-    <TouchableOpacity
-      style={[styles.deviceRow]}
-      activeOpacity={0.85}
-      onPress={() => handleConnect(item)}
-    >
-      <View style={[styles.deviceIconBox, { backgroundColor: item.type === 'classic' ? '#1A6B32' : '#0066FF' }]}>
-        <BluetoothConnected size={18} color="#fff" strokeWidth={2.5} />
-      </View>
-      <View style={styles.deviceInfo}>
-        <Text style={styles.deviceName} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.deviceId} numberOfLines={1}>
-          {item.id}
-        </Text>
-      </View>
-      <View style={{ alignItems: 'flex-end', gap: 4 }}>
-        <View style={[styles.typeBadge, { backgroundColor: item.type === 'classic' ? '#1A6B32' : '#0066FF' }]}>
-          <Text style={styles.typeBadgeText}>{item.type === 'classic' ? 'SPP' : 'BLE'}</Text>
+  const renderDevice = ({ item }: { item: ScannedDevice; index: number }) => {
+    const highlighted = isRecognized(item.name) && !item.bonded;
+    return (
+      <TouchableOpacity
+        style={[styles.deviceRow, highlighted && styles.deviceRowHighlighted]}
+        activeOpacity={0.85}
+        onPress={() => handleConnect(item)}
+      >
+        <View style={[styles.deviceIconBox, { backgroundColor: item.type === 'classic' ? '#1A6B32' : '#0066FF' }]}>
+          <BluetoothConnected size={18} color="#fff" strokeWidth={2.5} />
         </View>
-        <RssiBar rssi={item.rssi} />
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.deviceInfo}>
+          <View style={styles.deviceNameRow}>
+            <Text style={styles.deviceName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {highlighted && (
+              <View style={styles.recognizedBadge}>
+                <Sparkles size={9} color={Colors.dark} strokeWidth={2.5} />
+                <Text style={styles.recognizedBadgeText}>RECONHECIDO</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.deviceId} numberOfLines={1}>
+            {item.id}
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <View style={[styles.typeBadge, { backgroundColor: item.type === 'classic' ? '#1A6B32' : '#0066FF' }]}>
+            <Text style={styles.typeBadgeText}>{item.type === 'classic' ? 'SPP' : 'BLE'}</Text>
+          </View>
+          <RssiBar rssi={item.rssi} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <Modal
@@ -152,7 +198,7 @@ export default function DeviceListModal({ onClose }: Props) {
                     </>
                   ) : (
                     <Text style={styles.scanCountLabel}>
-                      {scannedDevices.length} encontrado(s)
+                      {visibleDevices.length} encontrado(s)
                     </Text>
                   )}
                 </View>
@@ -167,6 +213,40 @@ export default function DeviceListModal({ onClose }: Props) {
             </TouchableOpacity>
           </View>
 
+          {/* Busca */}
+          <View style={styles.searchWrapper}>
+            <TextInput
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Buscar dispositivo..."
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          {/* Filtro novos / pareados */}
+          <View style={styles.filterRow}>
+            {([
+              { key: 'todos', label: 'TODOS' },
+              { key: 'novos', label: 'NOVOS' },
+              { key: 'pareados', label: 'PAREADOS' },
+            ] as { key: FilterMode; label: string }[]).map((f) => {
+              const active = filterMode === f.key;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setFilterMode(f.key)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <View style={styles.divider} />
 
           {/* Lista */}
@@ -175,13 +255,17 @@ export default function DeviceListModal({ onClose }: Props) {
               <ActivityIndicator size="small" color={Colors.dark} />
               <Text style={styles.connectingText}>CONECTANDO...</Text>
             </View>
-          ) : scannedDevices.length === 0 ? (
+          ) : visibleDevices.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={[styles.emptyIcon, Shadow.neoSmall]}>
                 <BluetoothSearching size={28} color="#555" strokeWidth={2} />
               </View>
               <Text style={styles.emptyText}>
-                {isScanning ? 'Procurando dispositivos...' : 'Nenhum dispositivo encontrado'}
+                {isScanning
+                  ? 'Procurando dispositivos...'
+                  : scannedDevices.length === 0
+                  ? 'Nenhum dispositivo encontrado'
+                  : 'Nenhum dispositivo corresponde à busca/filtro'}
               </Text>
               {!isScanning && (
                 <TouchableOpacity
@@ -195,7 +279,7 @@ export default function DeviceListModal({ onClose }: Props) {
             </View>
           ) : (
             <FlatList
-              data={scannedDevices}
+              data={visibleDevices}
               keyExtractor={(d) => d.id}
               renderItem={renderDevice}
               contentContainerStyle={styles.list}
@@ -286,6 +370,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  searchWrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  searchInput: {
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: Colors.dark,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
+    color: Colors.dark,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  filterChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: Colors.dark,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.dark,
+  },
+  filterChipText: {
+    fontFamily: FontFamily.monoBold,
+    fontSize: 10,
+    color: Colors.dark,
+    letterSpacing: 0.5,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
   divider: {
     height: 3,
     backgroundColor: Colors.dark,
@@ -307,6 +431,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark,
     marginBottom: 8,
   },
+  deviceRowHighlighted: {
+    backgroundColor: '#FFF8DC',
+    borderColor: Colors.yellow,
+    borderWidth: 3,
+  },
   deviceIconBox: {
     width: 40,
     height: 40,
@@ -320,10 +449,33 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  deviceNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   deviceName: {
     fontFamily: FontFamily.title,
     fontSize: 13,
     color: Colors.dark,
+  },
+  recognizedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    backgroundColor: Colors.yellow,
+    borderWidth: 1.5,
+    borderColor: Colors.dark,
+  },
+  recognizedBadgeText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 7,
+    color: Colors.dark,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   deviceId: {
     fontFamily: FontFamily.mono,

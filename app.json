@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.dejesusdev.controlbit",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit.",
-        "NSBluetoothPeripheralUsageDescription": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit."
+        "NSBluetoothPeripheralUsageDescription": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit.",
+        "NSMotionUsageDescription": "O ControlBit usa o acelerômetro para controlar o veículo inclinando o celular."
       }
     },
     "android": {
