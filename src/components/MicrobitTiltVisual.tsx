@@ -49,15 +49,23 @@ interface Props {
   y: number;
   direction: TiltDirection;
   isLandscape: boolean;
+  /** Inverte a inclinação visual esquerda/direita — mesma flag usada em getTiltDirection. */
+  invertHorizontal?: boolean;
+  /** Inverte a inclinação visual cima/baixo — mesma flag usada em getTiltDirection. */
+  invertVertical?: boolean;
   size?: number;
 }
 
 const MAX_TILT_DEG = 28;
 
-export default function MicrobitTiltVisual({ x, y, direction, isLandscape, size = 200 }: Props) {
+export default function MicrobitTiltVisual({
+  x, y, direction, isLandscape, invertHorizontal, invertVertical, size = 200,
+}: Props) {
   // Mesma troca de eixos usada na leitura de direção: em landscape a tela girou 90°.
-  const rollX = isLandscape ? y : x;
-  const rollY = isLandscape ? x : y;
+  let rollX = isLandscape ? y : x;
+  let rollY = isLandscape ? x : y;
+  if (invertHorizontal) rollX = -rollX;
+  if (invertVertical) rollY = -rollY;
 
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';

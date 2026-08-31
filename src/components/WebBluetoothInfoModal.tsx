@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  Linking,
 } from 'react-native';
 import { BluetoothOff, TriangleAlert, X } from 'lucide-react-native';
 import { Colors, FontFamily, Shadow } from '../constants/theme';
@@ -15,6 +16,7 @@ import { TranslationKey } from '../i18n/translations';
 
 export type WebBluetoothInfoReason =
   | 'no-web-bluetooth'
+  | 'ios-no-web-bluetooth'
   | 'insecure-context'
   | 'classic-not-supported'
   | 'connect-error';
@@ -26,10 +28,14 @@ interface Props {
 
 const REASON_KEYS: Record<WebBluetoothInfoReason, { title: TranslationKey; body: TranslationKey }> = {
   'no-web-bluetooth': { title: 'web_bt_unsupported_title', body: 'web_bt_unsupported_body' },
+  'ios-no-web-bluetooth': { title: 'web_bt_ios_title', body: 'web_bt_ios_body' },
   'insecure-context': { title: 'web_bt_insecure_context_title', body: 'web_bt_insecure_context_body' },
   'classic-not-supported': { title: 'web_bt_classic_unsupported_title', body: 'web_bt_classic_unsupported_body' },
   'connect-error': { title: 'web_bt_connect_error_title', body: 'web_bt_connect_error_body' },
 };
+
+const BLUEFY_APP_STORE_URL = 'https://apps.apple.com/app/id1492822055';
+const WEBBLE_APP_STORE_URL = 'https://apps.apple.com/app/id1193531073';
 
 export default function WebBluetoothInfoModal({ reason, onClose }: Props) {
   const { t } = useLanguage();
@@ -53,7 +59,7 @@ export default function WebBluetoothInfoModal({ reason, onClose }: Props) {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={[styles.iconWrap, Shadow.neoSmall]}>
-                {reason === 'no-web-bluetooth' ? (
+                {reason === 'no-web-bluetooth' || reason === 'ios-no-web-bluetooth' ? (
                   <BluetoothOff size={22} color="#fff" strokeWidth={2.5} />
                 ) : (
                   <TriangleAlert size={22} color="#fff" strokeWidth={2.5} />
@@ -74,6 +80,35 @@ export default function WebBluetoothInfoModal({ reason, onClose }: Props) {
 
           <View style={styles.body}>
             <Text style={styles.bodyText}>{t(body)}</Text>
+
+            {reason === 'ios-no-web-bluetooth' && (
+              <View style={styles.stepsBox}>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>1</Text></View>
+                  <Text style={styles.stepText}>{t('web_bt_ios_step1')}</Text>
+                </View>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>2</Text></View>
+                  <Text style={styles.stepText}>{t('web_bt_ios_step2')}</Text>
+                </View>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>3</Text></View>
+                  <Text style={styles.stepText}>{t('web_bt_ios_step3')}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.appLinkBtn}
+                  onPress={() => Linking.openURL(BLUEFY_APP_STORE_URL)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.appLinkText}>{t('web_bt_ios_open_bluefy')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => Linking.openURL(WEBBLE_APP_STORE_URL)} activeOpacity={0.7}>
+                  <Text style={styles.appLinkAlt}>{t('web_bt_ios_alt_webble')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={styles.footer}>
@@ -156,6 +191,61 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark,
     lineHeight: 19,
+  },
+  stepsBox: {
+    marginTop: 16,
+    gap: 10,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  stepNumBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0066FF',
+    borderWidth: 2,
+    borderColor: Colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepNumText: {
+    fontFamily: FontFamily.title,
+    fontSize: 11,
+    color: '#fff',
+  },
+  stepText: {
+    flex: 1,
+    fontFamily: FontFamily.medium,
+    fontSize: 12,
+    color: Colors.dark,
+    lineHeight: 17,
+  },
+  appLinkBtn: {
+    marginTop: 6,
+    backgroundColor: '#0066FF',
+    borderWidth: 3,
+    borderColor: Colors.dark,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appLinkText: {
+    fontFamily: FontFamily.title,
+    fontSize: 12,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  appLinkAlt: {
+    marginTop: 10,
+    textAlign: 'center',
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    color: '#666',
+    textDecorationLine: 'underline',
   },
   footer: {
     flexDirection: 'row',

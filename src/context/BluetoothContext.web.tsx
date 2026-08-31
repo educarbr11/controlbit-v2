@@ -10,7 +10,11 @@ const UART_RX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 const HM10_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const HM10_CHAR_UUID    = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
-type UnsupportedReason = "no-web-bluetooth" | "insecure-context" | null;
+type UnsupportedReason =
+  | "no-web-bluetooth"
+  | "ios-no-web-bluetooth"
+  | "insecure-context"
+  | null;
 
 interface WebDevice {
   id: string;
@@ -37,9 +41,22 @@ export const BluetoothContext = createContext<BluetoothContextData>(
   {} as BluetoothContextData,
 );
 
+// iOS/iPadOS: todo navegador na App Store (Safari, Chrome, Edge...) é obrigado a
+// usar o motor WebKit, que nunca implementou Web Bluetooth — não é algo que dá
+// pra contornar por configuração, só usando um app com pilha própria (Bluefy/WebBLE).
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isAppleMobileUA = /iPad|iPhone|iPod/.test(ua);
+  // iPadOS "desktop" reporta UA de Mac, mas tem touch — diferencia de um Mac de verdade.
+  const isIPadDesktopMode =
+    navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return isAppleMobileUA || isIPadDesktopMode;
+}
+
 function detectUnsupportedReason(): UnsupportedReason {
   if (typeof navigator === "undefined" || !("bluetooth" in navigator)) {
-    return "no-web-bluetooth";
+    return isIOS() ? "ios-no-web-bluetooth" : "no-web-bluetooth";
   }
   if (typeof window !== "undefined" && window.isSecureContext === false) {
     return "insecure-context";

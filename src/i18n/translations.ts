@@ -6,7 +6,7 @@ export const translations = {
         home_subtitle: 'Controle seu Micro:bit via Bluetooth',
         home_control_modes: 'MODOS DE CONTROLE',
         home_basic_title: 'CONTROLE BÁSICO',
-        home_basic_desc: 'D-pad + 2 servos. Pronto para usar com qualquer carro micro:bit.',
+        home_basic_desc: 'D-pad direcional. Pronto para usar com qualquer carro micro:bit.',
         home_custom_title: 'CONTROLE COSTUMIZÁVEL',
         home_custom_desc: 'Crie, arraste e configure botões com seus próprios comandos.',
         home_help: 'AJUDA',
@@ -28,10 +28,9 @@ export const translations = {
 
         // BasicControl
         basic_header_title: 'CONTROLE BÁSICO',
-        basic_header_sub: 'D-PAD + SERVOS',
+        basic_header_sub: 'D-PAD',
         basic_direction: 'DIREÇÃO',
         basic_stop: 'PARAR',
-        basic_servos: 'SERVOS',
         basic_simulating: 'SIMULANDO',
         basic_settings_title: 'COMANDOS',
         basic_settings_up: 'Cima / Frente',
@@ -41,6 +40,9 @@ export const translations = {
         basic_settings_horn: 'Buzina',
         basic_settings_stop: 'Parar',
         basic_settings_save: 'SALVAR',
+        basic_tilt_bt_required_title: 'Conecte o Bluetooth',
+        basic_tilt_bt_required_msg: 'Para usar o controle por inclinação, conecte-se a um dispositivo Bluetooth primeiro.',
+        basic_tilt_fullscreen_active: 'TELA CHEIA\nATIVA',
 
         // CustomControl
         custom_header_title: 'CONTROLE COSTUMIZÁVEL',
@@ -104,6 +106,13 @@ export const translations = {
         web_bt_classic_unsupported_body: 'Módulos HC-05/HC-06 (Bluetooth Classic) não funcionam pelo navegador. Use um micro:bit, HM-10 ou HC-08 (Bluetooth de baixa energia), ou utilize o aplicativo no celular.',
         web_bt_connect_error_title: 'Erro de conexão',
         web_bt_connect_error_body: 'Não foi possível conectar ao dispositivo selecionado.',
+        web_bt_ios_title: 'Use um navegador com suporte a Bluetooth',
+        web_bt_ios_body: 'O Safari (e qualquer outro navegador no iPhone/iPad) não suporta Web Bluetooth — é uma limitação da própria Apple, sem solução por configuração. Para conectar ao micro:bit pelo navegador, abra este site dentro de um app com suporte próprio a Bluetooth:',
+        web_bt_ios_step1: 'Baixe o app gratuito "Bluefy – Web BLE Browser" na App Store',
+        web_bt_ios_step2: 'Abra o Bluefy e acesse este mesmo endereço dentro dele',
+        web_bt_ios_step3: 'Toque em conectar normalmente — agora vai funcionar',
+        web_bt_ios_open_bluefy: 'ABRIR BLUEFY NA APP STORE',
+        web_bt_ios_alt_webble: 'Alternativa paga: WebBLE',
         web_bt_ok: 'ENTENDI',
     },
 
@@ -112,7 +121,7 @@ export const translations = {
         home_subtitle: 'Controla tu Micro:bit vía Bluetooth',
         home_control_modes: 'MODOS DE CONTROL',
         home_basic_title: 'CONTROL BÁSICO',
-        home_basic_desc: 'D-pad + 2 servos. Listo para usar con cualquier carro micro:bit.',
+        home_basic_desc: 'D-pad direccional. Listo para usar con cualquier carro micro:bit.',
         home_custom_title: 'CONTROL PERSONALIZABLE',
         home_custom_desc: 'Crea, arrastra y configura botones con tus propios comandos.',
         home_help: 'AYUDA',
@@ -134,10 +143,9 @@ export const translations = {
 
         // BasicControl
         basic_header_title: 'CONTROL BÁSICO',
-        basic_header_sub: 'D-PAD + SERVOS',
+        basic_header_sub: 'D-PAD',
         basic_direction: 'DIRECCIÓN',
         basic_stop: 'PARAR',
-        basic_servos: 'SERVOS',
         basic_simulating: 'SIMULANDO',
         basic_settings_title: 'COMANDOS',
         basic_settings_up: 'Arriba / Frente',
@@ -147,6 +155,9 @@ export const translations = {
         basic_settings_horn: 'Bocina',
         basic_settings_stop: 'Parar',
         basic_settings_save: 'GUARDAR',
+        basic_tilt_bt_required_title: 'Conecta el Bluetooth',
+        basic_tilt_bt_required_msg: 'Para usar el control por inclinación, conéctate primero a un dispositivo Bluetooth.',
+        basic_tilt_fullscreen_active: 'PANTALLA COMPLETA\nACTIVA',
 
         // CustomControl
         custom_header_title: 'CONTROL PERSONALIZABLE',
@@ -210,6 +221,13 @@ export const translations = {
         web_bt_classic_unsupported_body: 'Los módulos HC-05/HC-06 (Bluetooth Classic) no funcionan desde el navegador. Usa un micro:bit, HM-10 o HC-08 (Bluetooth de baja energía), o utiliza la app en el celular.',
         web_bt_connect_error_title: 'Error de conexión',
         web_bt_connect_error_body: 'No se pudo conectar al dispositivo seleccionado.',
+        web_bt_ios_title: 'Usa un navegador con soporte a Bluetooth',
+        web_bt_ios_body: 'Safari (y cualquier otro navegador en iPhone/iPad) no soporta Web Bluetooth — es una limitación de Apple, sin solución por configuración. Para conectar con el micro:bit desde el navegador, abre este sitio dentro de una app con soporte propio a Bluetooth:',
+        web_bt_ios_step1: 'Descarga la app gratuita "Bluefy – Web BLE Browser" en la App Store',
+        web_bt_ios_step2: 'Abre Bluefy y accede a esta misma dirección dentro de la app',
+        web_bt_ios_step3: 'Toca en conectar normalmente — ahora funcionará',
+        web_bt_ios_open_bluefy: 'ABRIR BLUEFY EN LA APP STORE',
+        web_bt_ios_alt_webble: 'Alternativa de pago: WebBLE',
         web_bt_ok: 'ENTENDIDO',
     },
 
@@ -218,7 +236,7 @@ export const translations = {
         home_subtitle: 'Control your Micro:bit via Bluetooth',
         home_control_modes: 'CONTROL MODES',
         home_basic_title: 'BASIC CONTROL',
-        home_basic_desc: 'D-pad + 2 servos. Ready to use with any micro:bit car.',
+        home_basic_desc: 'Directional D-pad. Ready to use with any micro:bit car.',
         home_custom_title: 'CUSTOMIZABLE CONTROL',
         home_custom_desc: 'Create, drag and configure buttons with your own commands.',
         home_help: 'HELP',
@@ -240,10 +258,9 @@ export const translations = {
 
         // BasicControl
         basic_header_title: 'BASIC CONTROL',
-        basic_header_sub: 'D-PAD + SERVOS',
+        basic_header_sub: 'D-PAD',
         basic_direction: 'DIRECTION',
         basic_stop: 'STOP',
-        basic_servos: 'SERVOS',
         basic_simulating: 'SIMULATING',
         basic_settings_title: 'COMMANDS',
         basic_settings_up: 'Up / Forward',
@@ -253,6 +270,9 @@ export const translations = {
         basic_settings_horn: 'Horn',
         basic_settings_stop: 'Stop',
         basic_settings_save: 'SAVE',
+        basic_tilt_bt_required_title: 'Connect Bluetooth',
+        basic_tilt_bt_required_msg: 'To use tilt control, connect to a Bluetooth device first.',
+        basic_tilt_fullscreen_active: 'FULLSCREEN\nACTIVE',
 
         // CustomControl
         custom_header_title: 'CUSTOMIZABLE CONTROL',
@@ -316,6 +336,13 @@ export const translations = {
         web_bt_classic_unsupported_body: 'HC-05/HC-06 (Bluetooth Classic) modules do not work from the browser. Use a micro:bit, HM-10 or HC-08 (Bluetooth Low Energy), or use the mobile app.',
         web_bt_connect_error_title: 'Connection error',
         web_bt_connect_error_body: 'Could not connect to the selected device.',
+        web_bt_ios_title: 'Use a browser with Bluetooth support',
+        web_bt_ios_body: "Safari (and every other browser on iPhone/iPad) does not support Web Bluetooth — this is an Apple platform limitation with no configuration fix. To connect to the micro:bit from the browser, open this site inside an app with its own Bluetooth support:",
+        web_bt_ios_step1: 'Download the free "Bluefy – Web BLE Browser" app from the App Store',
+        web_bt_ios_step2: 'Open Bluefy and go to this same address inside it',
+        web_bt_ios_step3: 'Tap connect as usual — it will work now',
+        web_bt_ios_open_bluefy: 'OPEN BLUEFY IN THE APP STORE',
+        web_bt_ios_alt_webble: 'Paid alternative: WebBLE',
         web_bt_ok: 'GOT IT',
     },
 } as const satisfies Record<Language, Record<string, string>>;

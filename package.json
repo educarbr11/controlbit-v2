@@ -47,7 +47,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "device": "npx expo run:android --device",
-    "build:web": "expo export -p web"
+    "build:web": "expo export -p web",
+    "gstop": "cd android && ./gradlew --stop"
   },
   "private": true
 }

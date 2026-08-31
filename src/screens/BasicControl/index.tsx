@@ -8,6 +8,7 @@ import {
   StatusBar,
   FlatList,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -18,19 +19,21 @@ import {
   Star,
   Settings,
   Smartphone,
+  Maximize2,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useBluetooth } from '../../context/BluetoothContext';
 import { useLanguage } from '../../context/LanguageContext';
 import ControlPad from '../../components/ControlPad';
-import ServoSlider from '../../components/ServoSlider';
 import BluetoothStatusButton from '../../components/BluetoothButton';
 import { BasicCommandStorage, BasicCommands, DEFAULT_BASIC_COMMANDS } from '../../services/basicCommandStorage';
 import BasicCommandSettingsModal from '../../components/BasicCommandSettingsModal';
+import AccelerometerFullscreenModal from '../../components/AccelerometerFullscreenModal';
 import { useScreenOrientation } from '../../hooks/useScreenOrientation';
 import { useAccelerometer } from '../../hooks/useAccelerometer';
 import MicrobitTiltVisual from '../../components/MicrobitTiltVisual';
 import MobileRotateIcon from '../../components/icons/MobileRotateIcon';
+import { getCmdColor } from '../../utils/cmdColor';
 
 // Direção do tilt com histerese: precisa passar de ENTER_THRESHOLD para "entrar"
 // numa direção e voltar abaixo de EXIT_THRESHOLD para "sair" (evita oscilação na borda).
@@ -44,12 +47,20 @@ function getTiltDirection(
   y: number,
   isLandscape: boolean,
   current: TiltDirection,
+  invertVertical: boolean,
+  invertHorizontal: boolean,
 ): TiltDirection {
   // Em portrait, inclinar o topo do celular para frente/trás move no eixo Y;
   // inclinar para os lados move no eixo X. Em landscape a tela girou 90°, então
   // os eixos físicos do acelerômetro trocam de papel.
-  const forwardAxis = isLandscape ? x : y;
-  const sideAxis = isLandscape ? -y : -x;
+  let forwardAxis = isLandscape ? x : y;
+  let sideAxis = isLandscape ? -y : -x;
+  // Correção manual — em alguns aparelhos/orientações o mapeamento acima sai
+  // invertido (ex: paisagem-direita vs paisagem-esquerda); os widgets de
+  // inversão na tela cheia dão ao usuário como corrigir sem depender de nós
+  // acertarmos o lado físico certo pra cada device.
+  if (invertVertical) forwardAxis = -forwardAxis;
+  if (invertHorizontal) sideAxis = -sideAxis;
 
   const threshold = (dir: TiltDirection) =>
     dir === current ? TILT_EXIT_THRESHOLD : TILT_ENTER_THRESHOLD;
@@ -59,21 +70,6 @@ function getTiltDirection(
   if (sideAxis <= -threshold('left')) return 'left';
   if (sideAxis >= threshold('right')) return 'right';
   return null;
-}
-
-const CMD_COLOR_MAP: Record<string, string> = {
-  F: '#00C851',
-  T: '#FF2D2D',
-  E: '#0066FF',
-  D: '#0066FF',
-  B: '#FF6B00',
-  P: '#7B2FFF',
-};
-
-function getCmdColor(cmd: string): string {
-  if (cmd.startsWith('c')) return '#FF3CAC';
-  if (cmd.startsWith('x')) return '#00D9F5';
-  return CMD_COLOR_MAP[cmd] || '#FFE500';
 }
 
 export default function BasicControl() {
@@ -87,6 +83,9 @@ export default function BasicControl() {
   const [showSettings, setShowSettings] = useState(false);
   const { orientation, toggle, isLandscape } = useScreenOrientation('portrait');
   const [tiltEnabled, setTiltEnabled] = useState(false);
+  const [tiltFullscreen, setTiltFullscreen] = useState(false);
+  const [invertVertical, setInvertVertical] = useState(false);
+  const [invertHorizontal, setInvertHorizontal] = useState(false);
 
   // Ocultar tabs no landscape
   useEffect(() => {
@@ -167,7 +166,9 @@ export default function BasicControl() {
 
   useEffect(() => {
     if (!tiltEnabled) return;
-    const nextDirection = getTiltDirection(tiltX, tiltY, isLandscape, tiltDirection);
+    const nextDirection = getTiltDirection(
+      tiltX, tiltY, isLandscape, tiltDirection, invertVertical, invertHorizontal,
+    );
     if (nextDirection === tiltDirection) return;
     setTiltDirection(nextDirection);
     if (nextDirection) {
@@ -175,20 +176,51 @@ export default function BasicControl() {
     } else {
       handleStop();
     }
-  }, [tiltX, tiltY, tiltEnabled, isLandscape, tiltDirection, commands, handleCommand]);
+  }, [tiltX, tiltY, tiltEnabled, isLandscape, tiltDirection, invertVertical, invertHorizontal, commands, handleCommand]);
 
   const toggleTilt = useCallback(() => {
     setTiltEnabled(prev => {
       const next = !prev;
+      if (next && !isConnected) {
+        // Sem conexão Bluetooth os comandos não teriam para onde ir — avisa
+        // o usuário em vez de deixar o tilt "rodando" sem efeito nenhum.
+        Alert.alert(t('basic_tilt_bt_required_title'), t('basic_tilt_bt_required_msg'));
+        return prev;
+      }
       if (!next && tiltDirection) {
         setTiltDirection(null);
         handleStop();
       }
       return next;
     });
-  }, [handleStop, tiltDirection]);
+  }, [handleStop, tiltDirection, isConnected, t]);
 
   const txBgColor = activeCmd ? getCmdColor(activeCmd) : '#E5E0D5';
+
+  // Com a tela cheia do acelerômetro aberta, o Modal cobre tudo (é opaco) —
+  // não há motivo pra manter o header/D-pad/FABs por trás re-renderizando a
+  // cada leitura do sensor. Os hooks (useAccelerometer, o efeito de direção,
+  // sendCommand) continuam rodando normalmente; só a árvore visual encolhe.
+  if (tiltFullscreen) {
+    return (
+      <View className="flex-1 bg-[#F5F0E8]">
+        <AccelerometerFullscreenModal
+          visible={tiltFullscreen}
+          onClose={() => setTiltFullscreen(false)}
+          x={tiltX}
+          y={tiltY}
+          direction={tiltDirection}
+          isLandscape={isLandscape}
+          onToggleOrientation={toggle}
+          activeCmd={activeCmd}
+          invertVertical={invertVertical}
+          invertHorizontal={invertHorizontal}
+          onToggleInvertVertical={() => setInvertVertical(v => !v)}
+          onToggleInvertHorizontal={() => setInvertHorizontal(v => !v)}
+        />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#F5F0E8]">
@@ -321,58 +353,58 @@ export default function BasicControl() {
             </View>
             <View className="flex-1 items-center justify-center bg-[#F0EBE0]">
               {tiltEnabled ? (
-                <MicrobitTiltVisual x={tiltX} y={tiltY} direction={tiltDirection} isLandscape={isLandscape} size={150} />
+                <View style={{ position: 'relative' }}>
+                  <MicrobitTiltVisual
+                    x={tiltX}
+                    y={tiltY}
+                    direction={tiltDirection}
+                    isLandscape={isLandscape}
+                    invertVertical={invertVertical}
+                    invertHorizontal={invertHorizontal}
+                    size={150}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setTiltFullscreen(true)}
+                    className="absolute w-8 h-8 bg-white border-[3px] border-[#1A1A1A] items-center justify-center"
+                    style={{
+                      bottom: 4,
+                      right: 4,
+                      shadowColor: '#1A1A1A',
+                      shadowOffset: { width: 3, height: 3 },
+                      shadowOpacity: 1,
+                      shadowRadius: 0,
+                      elevation: 6,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Maximize2 size={14} color="#1A1A1A" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} buttonSize={90} />
               )}
             </View>
           </View>
 
-          {/* Direita: Servos + Parar */}
-          <View className="flex-1" style={{ gap: 16 }}>
-            <View
-              className="flex-1 bg-white border-[3px] border-[#1A1A1A]"
-              style={{
-                shadowColor: '#1A1A1A',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 1,
-                shadowRadius: 0,
-                elevation: 8,
-              }}
-            >
-              <View className="flex-row items-center justify-between px-4 py-2 bg-[#1C37B5] border-b-[3px] border-[#1A1A1A]">
-                <Text className="font-[SpaceMono-Bold] text-white text-[12px] tracking-widest">
-                  {t('basic_servos')}
-                </Text>
-                <Text className="font-[SpaceMono-Regular] text-[#BFC8E8] text-[9px]">
-                  0° → 180°
-                </Text>
-              </View>
-              <View className="p-4" style={{ gap: 16, flex: 1, justifyContent: 'center' }}>
-                <ServoSlider label="SERVO 1" prefix="c" color="#E81C1C" onCommand={handleCommand} />
-                <ServoSlider label="SERVO 2" prefix="x" color="#FFD82D" onCommand={handleCommand} />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              className="flex-row items-center justify-center py-4 bg-[#E81C1C] border-[3px] border-[#1A1A1A]"
-              style={{
-                gap: 10,
-                shadowColor: '#1A1A1A',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 1,
-                shadowRadius: 0,
-                elevation: 8,
-              }}
-              onPressIn={() => handleCommand(commands.stop)}
-              activeOpacity={0.85}
-            >
-              <StopCircle size={22} color="#fff" strokeWidth={2.5} />
-              <Text className="font-[SpaceGrotesk-Bold] text-white text-base tracking-widest">
-                {t('basic_stop')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Direita: Parar */}
+          <TouchableOpacity
+            className="flex-1 items-center justify-center bg-[#E81C1C] border-[3px] border-[#1A1A1A]"
+            style={{
+              gap: 12,
+              shadowColor: '#1A1A1A',
+              shadowOffset: { width: 4, height: 4 },
+              shadowOpacity: 1,
+              shadowRadius: 0,
+              elevation: 8,
+            }}
+            onPressIn={() => handleCommand(commands.stop)}
+            activeOpacity={0.85}
+          >
+            <StopCircle size={64} color="#fff" strokeWidth={2} />
+            <Text className="font-[SpaceGrotesk-Bold] text-white text-2xl tracking-widest">
+              {t('basic_stop')}
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -407,7 +439,32 @@ export default function BasicControl() {
             </View>
             <View className="items-center justify-center bg-[#F0EBE0]" style={{ paddingVertical: tiltEnabled ? 20 : 0 }}>
               {tiltEnabled ? (
-                <MicrobitTiltVisual x={tiltX} y={tiltY} direction={tiltDirection} isLandscape={isLandscape} />
+                <View style={{ position: 'relative' }}>
+                  <MicrobitTiltVisual
+                    x={tiltX}
+                    y={tiltY}
+                    direction={tiltDirection}
+                    isLandscape={isLandscape}
+                    invertVertical={invertVertical}
+                    invertHorizontal={invertHorizontal}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setTiltFullscreen(true)}
+                    className="absolute w-9 h-9 bg-white border-[3px] border-[#1A1A1A] items-center justify-center"
+                    style={{
+                      bottom: 8,
+                      right: 8,
+                      shadowColor: '#1A1A1A',
+                      shadowOffset: { width: 3, height: 3 },
+                      shadowOpacity: 1,
+                      shadowRadius: 0,
+                      elevation: 6,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Maximize2 size={16} color="#1A1A1A" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <ControlPad commands={commands} onCommand={handleCommand} onStop={handleStop} />
               )}
@@ -433,31 +490,6 @@ export default function BasicControl() {
               {t('basic_stop')}
             </Text>
           </TouchableOpacity>
-
-          {/* Seção SERVOS */}
-          <View
-            className="bg-white border-[3px] border-[#1A1A1A]"
-            style={{
-              shadowColor: '#1A1A1A',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 1,
-              shadowRadius: 0,
-              elevation: 8,
-            }}
-          >
-            <View className="flex-row items-center justify-between px-4 py-2 bg-[#1C37B5] border-b-[3px] border-[#1A1A1A]">
-              <Text className="font-[SpaceMono-Bold] text-white text-[12px] tracking-widest">
-                {t('basic_servos')}
-              </Text>
-              <Text className="font-[SpaceMono-Regular] text-[#BFC8E8] text-[9px]">
-                0° → 180°
-              </Text>
-            </View>
-            <View className="p-4" style={{ gap: 16 }}>
-              <ServoSlider label="SERVO 1" prefix="c" color="#E81C1C" onCommand={handleCommand} />
-              <ServoSlider label="SERVO 2" prefix="x" color="#FFD82D" onCommand={handleCommand} />
-            </View>
-          </View>
         </ScrollView>
       )}
 
