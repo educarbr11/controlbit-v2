@@ -113,17 +113,18 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
 
     setIsConnecting(true);
     try {
-      // O micro:bit normalmente NÃO anuncia o UUID do serviço UART no pacote de
-      // advertising (o payload de 31 bytes do BLE legado mal cabe o nome +
-      // flags junto de um UUID de 128 bits) — só expõe o serviço após conectar.
-      // Por isso filtramos o micro:bit pelo prefixo do nome ("BBC micro:bit ..."),
-      // e módulos HM-10/HC-08 (que costumam anunciar o serviço 0xFFE0) por serviço.
+      // Não usamos `filters` (nem por serviço, nem por namePrefix): o
+      // micro:bit normalmente não anuncia o UUID do serviço UART no pacote
+      // de advertising, e filtro por nome depende de cada implementação
+      // saber traduzir isso — CoreBluetooth (usado por navegadores como o
+      // Bluefy no iOS) só tem suporte nativo a escanear por SERVIÇO, não por
+      // nome, então um filtro de namePrefix pode simplesmente não funcionar
+      // fora do Chrome. `acceptAllDevices` é o modo mais básico e universal:
+      // lista todo dispositivo BLE próximo, sem depender de lógica de filtro
+      // específica de cada navegador — o usuário escolhe o micro:bit/módulo
+      // certo na própria lista nativa do navegador.
       const picked = await navigator.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: "BBC micro:bit" },
-          { namePrefix: "micro:bit" },
-          { services: [HM10_SERVICE_UUID] },
-        ],
+        acceptAllDevices: true,
         optionalServices: [
           UART_SERVICE_UUID, UART_RX_UUID, HM10_SERVICE_UUID, HM10_CHAR_UUID,
         ],

@@ -4690,15 +4690,16 @@ Depois disso, `navigator.bluetooth` passa a existir e o botão de conectar abre 
 
 ## Versão web: micro:bit não aparece na lista de dispositivos
 
-Diferente do app nativo (que descobre os serviços após conectar), o Web Bluetooth só mostra no seletor os dispositivos cujo pacote de anúncio (advertising) corresponda a um filtro declarado — e o micro:bit normalmente **não** anuncia o UUID do serviço UART (128 bits) nesse pacote, só o nome. Por isso o app filtra o micro:bit pelo prefixo do nome (`BBC micro:bit ...`) em vez do serviço.
+O app usa `acceptAllDevices: true` no seletor do navegador (em vez de filtrar por serviço ou por nome) — o micro:bit normalmente **não** anuncia o UUID do serviço UART (128 bits) no pacote de advertising, só o nome, e filtrar por nome (`namePrefix`) depende de cada navegador saber traduzir isso: no iOS, por exemplo, o CoreBluetooth (usado por baixo dos panos por navegadores como o Bluefy) só tem suporte nativo a escanear por serviço, não por nome, então um filtro de `namePrefix` simplesmente não funciona lá mesmo que funcione no Chrome. Por isso a lista do seletor mostra **todo dispositivo Bluetooth próximo**, não só o micro:bit — é o preço de funcionar de forma consistente em qualquer navegador/app. Procure por "BBC micro:bit [nome]" na lista.
 
 Se mesmo assim ele não aparecer:
 
 - confirme que o micro:bit está com o Bluetooth ativo e anunciando (LED de status conforme o firmware do MakeCode);
 - confirme que ele não está pareado/conectado a outro dispositivo (celular, outro navegador) no momento;
-- aproxime o computador do micro:bit — o alcance do BLE via adaptador de notebook costuma ser mais curto que o de um celular.
+- aproxime o computador/celular do micro:bit — o alcance do BLE via adaptador de notebook costuma ser mais curto que o de um celular;
+- espere alguns segundos — sem filtro, o seletor pode levar um pouco mais para popular a lista completa de dispositivos próximos.
 
-Módulos HM-10/HC-08 são filtrados pelo serviço `0xFFE0`, que costuma ser anunciado normalmente. **HC-05/HC-06 (Bluetooth Classic/SPP) não aparecem nunca na versão web** — o navegador não suporta esse protocolo; use um módulo BLE ou o aplicativo mobile.
+**HC-05/HC-06 (Bluetooth Classic/SPP) não aparecem nunca na versão web**, mesmo estando na lista de todos os dispositivos — o navegador não suporta esse protocolo (só GATT/BLE); tentar conectar neles falha. Use um módulo BLE (HM-10/HC-08) ou o aplicativo mobile.
 
 ## Build falha após instalar dependência nativa
 
