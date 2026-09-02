@@ -81,7 +81,7 @@ export default function BasicControl() {
   const [activeCmd, setActiveCmd] = useState('');
   const [commands, setCommands] = useState<BasicCommands>(DEFAULT_BASIC_COMMANDS);
   const [showSettings, setShowSettings] = useState(false);
-  const { orientation, toggle, isLandscape } = useScreenOrientation('portrait');
+  const { orientation, toggle, set: setOrientation, isLandscape } = useScreenOrientation('portrait');
   const [tiltEnabled, setTiltEnabled] = useState(false);
   const [tiltFullscreen, setTiltFullscreen] = useState(false);
   const [invertVertical, setInvertVertical] = useState(false);
@@ -194,6 +194,14 @@ export default function BasicControl() {
       return next;
     });
   }, [handleStop, tiltDirection, isConnected, t]);
+
+  // Ao abrir a tela cheia do acelerômetro, força a orientação paisagem —
+  // é assim que o simulador do micro:bit fica visível por inteiro e do
+  // tamanho certo, independente da orientação em que a tela já estava.
+  const openTiltFullscreen = useCallback(() => {
+    setOrientation('landscape');
+    setTiltFullscreen(true);
+  }, [setOrientation]);
 
   const txBgColor = activeCmd ? getCmdColor(activeCmd) : '#E5E0D5';
 
@@ -364,7 +372,7 @@ export default function BasicControl() {
                     size={150}
                   />
                   <TouchableOpacity
-                    onPress={() => setTiltFullscreen(true)}
+                    onPress={openTiltFullscreen}
                     className="absolute w-8 h-8 bg-white border-[3px] border-[#1A1A1A] items-center justify-center"
                     style={{
                       bottom: 4,
@@ -449,7 +457,7 @@ export default function BasicControl() {
                     invertHorizontal={invertHorizontal}
                   />
                   <TouchableOpacity
-                    onPress={() => setTiltFullscreen(true)}
+                    onPress={openTiltFullscreen}
                     className="absolute w-9 h-9 bg-white border-[3px] border-[#1A1A1A] items-center justify-center"
                     style={{
                       bottom: 8,
