@@ -69,8 +69,21 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": ["peripheral", "central"],
+          "modes": [
+            "peripheral",
+            "central"
+          ],
           "bluetoothAlwaysPermission": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit."
+        }
+      ],
+      "./plugins/withAndroidReleaseSigning",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
         }
       ]
     ]
