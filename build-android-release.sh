@@ -110,6 +110,53 @@ echo
 
 
 # -----------------------------
+# Versão do app
+# -----------------------------
+
+BUILD_GRADLE="android/app/build.gradle"
+
+[[ -f "$BUILD_GRADLE" ]] \
+    || die "$BUILD_GRADLE não encontrado."
+
+CURRENT_VERSION_NAME="$(grep -m1 -E 'versionName ' "$BUILD_GRADLE" | sed -E 's/.*versionName[[:space:]]+"([^"]*)".*/\1/')"
+CURRENT_VERSION_CODE="$(grep -m1 -E 'versionCode ' "$BUILD_GRADLE" | sed -E 's/.*versionCode[[:space:]]+([0-9]+).*/\1/')"
+
+[[ -n "$CURRENT_VERSION_NAME" && -n "$CURRENT_VERSION_CODE" ]] \
+    || die "Não foi possível ler versionName/versionCode de $BUILD_GRADLE."
+
+echo -e "${CYAN}--- Versão do app ---${NC}"
+echo
+echo -e "Versão atual: ${GREEN}$CURRENT_VERSION_NAME${NC} (versionCode ${GREEN}$CURRENT_VERSION_CODE${NC})"
+echo
+echo "Pressione Enter para manter a versão atual, ou informe a nova versão."
+echo
+
+read -r -p "Nova versão (versionName) [Enter = manter $CURRENT_VERSION_NAME]: " NEW_VERSION_NAME
+NEW_VERSION_NAME="${NEW_VERSION_NAME:-$CURRENT_VERSION_NAME}"
+
+SUGGESTED_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
+
+read -r -p "Novo versionCode [Enter = $SUGGESTED_VERSION_CODE]: " NEW_VERSION_CODE
+NEW_VERSION_CODE="${NEW_VERSION_CODE:-$SUGGESTED_VERSION_CODE}"
+
+[[ "$NEW_VERSION_CODE" =~ ^[0-9]+$ ]] \
+    || die "versionCode inválido: $NEW_VERSION_CODE"
+
+echo
+
+if [[ "$NEW_VERSION_NAME" != "$CURRENT_VERSION_NAME" || "$NEW_VERSION_CODE" != "$CURRENT_VERSION_CODE" ]]; then
+    sed -i -E "s/(versionCode[[:space:]]+)[0-9]+/\1$NEW_VERSION_CODE/" "$BUILD_GRADLE"
+    sed -i -E "s/(versionName[[:space:]]+)\"[^\"]*\"/\1\"$NEW_VERSION_NAME\"/" "$BUILD_GRADLE"
+
+    success "Versão atualizada: $CURRENT_VERSION_NAME ($CURRENT_VERSION_CODE) → $NEW_VERSION_NAME ($NEW_VERSION_CODE)"
+else
+    info "Versão mantida: $CURRENT_VERSION_NAME ($CURRENT_VERSION_CODE)"
+fi
+
+echo
+
+
+# -----------------------------
 # Keystore
 # -----------------------------
 
@@ -383,6 +430,30 @@ echo
 
 
 # -----------------------------
+# Preservar arquivo de desofuscação (mapping.txt)
+# -----------------------------
+
+MAPPING_SRC="app/build/outputs/mapping/release/mapping.txt"
+MAPPING_PATH=""
+
+if [[ -f "$MAPPING_SRC" ]]; then
+    MAPPING_DEST_DIR="$(dirname "$AAB_PATH")"
+    MAPPING_PATH="$MAPPING_DEST_DIR/mapping-$NEW_VERSION_NAME-$NEW_VERSION_CODE.txt"
+
+    cp "$MAPPING_SRC" "$MAPPING_PATH"
+
+    success "Arquivo de desofuscação (mapping.txt) preservado."
+    echo
+    echo -e "Arquivo:"
+    echo -e "${GREEN}$MAPPING_PATH${NC}"
+    echo
+else
+    warning "mapping.txt não encontrado em $MAPPING_SRC (minificação R8 pode estar desativada)."
+    echo
+fi
+
+
+# -----------------------------
 # Verificar certificado do AAB
 # -----------------------------
 
@@ -453,4 +524,14 @@ fi
 
 echo
 echo "O arquivo acima está pronto para ser enviado ao Google Play Console."
+
+if [[ -n "$MAPPING_PATH" ]]; then
+    echo
+    echo -e "Arquivo de desofuscação (mapping.txt):"
+    echo -e "${GREEN}$MAPPING_PATH${NC}"
+    echo
+    echo "Anexe este arquivo junto com o AAB na tela de criação da versão no Play Console"
+    echo "(campo \"Arquivo de desofuscação\") para que os relatórios de falhas/ANR venham legíveis."
+fi
+
 echo
