@@ -12,6 +12,7 @@
     "@react-navigation/native-stack": "^7.17.5",
     "babel-preset-expo": "^56.0.14",
     "expo": "~56.0.8",
+    "expo-build-properties": "~56.0.27",
     "expo-font": "~56.0.5",
     "expo-navigation-bar": "~56.0.3",
     "expo-screen-orientation": "~56.0.5",
