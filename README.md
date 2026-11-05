@@ -35,6 +35,7 @@ npm run setup      # valida o ambiente e instala as dependências
 | `npm run device:release` | Gera o APK release **assinado**, instala e abre no celular |
 | `npm start` | Só o Metro (após o primeiro build nativo, mudanças em `.ts/.tsx` não exigem recompilar) |
 | `npm run build:web` | Exporta o site estático em `dist/` |
+| `npm test` | Roda os testes (perfis salvos e direção da inclinação) |
 
 > Bluetooth é código nativo: **não funciona no Expo Go**. Use `npm run device`.
 
@@ -82,7 +83,7 @@ Esses scripts perguntam a versão, a keystore e o SHA-1 esperado pelo Google Pla
 App.tsx            entrada: providers + navegação
 src/components/    UI reutilizável (NeoButton, ControlPad, modais…)
 src/context/       Bluetooth, Arduino e idioma
-src/screens/       Home, BasicControl, CustomControl, CustomPlay, ArduinoControl
+src/screens/       Home, BasicControl, CustomControl, CustomPlay
 src/services/      persistência (comandos básicos e perfis)
 src/i18n/          traduções
 plugins/           config plugins do Expo

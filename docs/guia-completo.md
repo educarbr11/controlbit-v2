@@ -280,7 +280,6 @@ controlbit-v2/
 │   │   └── theme.ts
 │   │
 │   ├── context/
-│   │   ├── ArduinoContext.tsx
 │   │   ├── BluetoothContext.tsx
 │   │   └── LanguageContext.tsx
 │   │
@@ -295,7 +294,6 @@ controlbit-v2/
 │   │   └── routes.tsx
 │   │
 │   ├── screens/
-│   │   ├── ArduinoControl/
 │   │   ├── BasicControl/
 │   │   ├── CustomControl/
 │   │   ├── CustomPlay/
@@ -4817,31 +4815,6 @@ react-native-ble-plx
 ```
 
 ---
-
-# Código legado ou experimental
-
-Existem atualmente:
-
-```text
-src/context/ArduinoContext.tsx
-src/screens/ArduinoControl/
-```
-
-Essa implementação é dedicada especificamente a HC-05/HC-06 usando Bluetooth Classic.
-
-Porém, o fluxo principal do aplicativo atual utiliza:
-
-```text
-BluetoothProvider
-BluetoothContext
-BasicControl
-```
-
-`App.tsx` não registra `ArduinoProvider` e o `AppNavigator` atual não registra `ArduinoControl`.
-
-Portanto, até que essa camada seja integrada explicitamente, trate `ArduinoContext` e `ArduinoControl` como código legado, experimental ou em processo de migração.
-
-Não desenvolva funcionalidades novas nessa camada sem confirmar antes qual arquitetura Bluetooth será mantida.
 
 A preferência arquitetural atual deve ser centralizar BLE e Classic em:
 

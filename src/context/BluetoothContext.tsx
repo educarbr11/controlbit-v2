@@ -16,25 +16,6 @@ const UART_RX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 const HM10_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const HM10_CHAR_UUID    = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
-// Fallback manual (sem depender do global `Buffer`, indisponível por padrão no Hermes)
-// para engines que não expõem `btoa`.
-const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-function toBase64(input: string): string {
-  let output = "";
-  for (let i = 0; i < input.length; i += 3) {
-    const c1 = input.charCodeAt(i);
-    const c2 = input.charCodeAt(i + 1);
-    const c3 = input.charCodeAt(i + 2);
-    const hasC2 = i + 1 < input.length;
-    const hasC3 = i + 2 < input.length;
-    output += BASE64_CHARS[c1 >> 2];
-    output += BASE64_CHARS[((c1 & 0x03) << 4) | (c2 >> 4 || 0)];
-    output += hasC2 ? BASE64_CHARS[((c2 & 0x0f) << 2) | (c3 >> 6 || 0)] : "=";
-    output += hasC3 ? BASE64_CHARS[c3 & 0x3f] : "=";
-  }
-  return output;
-}
-
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface BluetoothContextData {
   status: BluetoothStatus;
@@ -79,6 +60,9 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
   // Protocolo BLE ativo: 'hm10' | 'uart' | null
   const bleProtocolRef = useRef<"hm10" | "uart" | null>(null);
 
+  // Timer que encerra a busca; guardado para um scan novo não ser cortado pelo antigo
+  const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Subscription de desconexão clássica
   const classicDisconnectSub = useRef<BluetoothEventSubscription | null>(null);
 
@@ -119,23 +103,22 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
   }, [manager]);
 
   // ── Permissões ───────────────────────────────────────────────────────────────
-  const requestPermissions = useCallback(async () => {
-    if (Platform.OS !== "android") return;
+  const requestPermissions = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS !== "android") return true;
+    const P = PermissionsAndroid.PERMISSIONS;
     if (Platform.Version >= 31) {
-      await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      const r = await PermissionsAndroid.requestMultiple([
+        P.BLUETOOTH_SCAN, P.BLUETOOTH_CONNECT, P.ACCESS_FINE_LOCATION,
       ]);
-    } else {
-      await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      );
+      return r[P.BLUETOOTH_SCAN] === "granted" && r[P.BLUETOOTH_CONNECT] === "granted";
     }
+    return (await PermissionsAndroid.request(P.ACCESS_FINE_LOCATION)) === "granted";
   }, []);
 
   // ── Stop Scan ────────────────────────────────────────────────────────────────
   const stopScan = useCallback(() => {
+    if (scanTimer.current) clearTimeout(scanTimer.current);
+    scanTimer.current = null;
     manager.stopDeviceScan();
     RNBluetoothClassic.cancelDiscovery().catch(() => {});
     setIsScanning(false);
@@ -143,7 +126,13 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Start Scan ───────────────────────────────────────────────────────────────
   const startScan = useCallback(async () => {
-    await requestPermissions();
+    if (!(await requestPermissions())) {
+      Alert.alert(
+        "Permissão necessária",
+        "Permita o Bluetooth (e a localização, em aparelhos mais antigos) nas configurações do Android para procurar dispositivos.",
+      );
+      return;
+    }
     if (isScanning) return;
 
     setScannedDevices([]);
@@ -183,7 +172,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    setTimeout(() => stopScan(), 12000);
+    scanTimer.current = setTimeout(stopScan, 12000);
   }, [manager, isScanning, requestPermissions, stopScan]);
 
   // ── Connect ──────────────────────────────────────────────────────────────────
@@ -238,6 +227,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
         if (id.includes("6e400001")) { protocol = "uart"; break; }
       }
       bleProtocolRef.current = protocol;
+      if (!protocol) throw new Error("Serviço UART (HM-10 ou micro:bit) não encontrado");
 
       connected.onDisconnected(() => {
         setBleDevice(null);
@@ -250,6 +240,9 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
       setIsConnecting(false);
     } catch (e) {
       console.error("[BT] Erro na conexão:", e);
+      if (deviceInfo.type !== "classic") {
+        manager.cancelDeviceConnection(deviceInfo.id).catch(() => {});
+      }
       setIsConnecting(false);
       Alert.alert(
         "Erro de Conexão",
@@ -285,8 +278,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
 
       // BLE — base64 via characteristic
       if (!bleRef.current) return;
-      const payload =
-        typeof btoa !== "undefined" ? btoa(cmdNL) : toBase64(cmdNL);
+      const payload = btoa(cmdNL);
 
       const proto = bleProtocolRef.current;
       if (proto === "hm10") {

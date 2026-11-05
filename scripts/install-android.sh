@@ -16,7 +16,13 @@ source scripts/lib.sh
 
 # .env.local está no .gitignore; variáveis já exportadas no shell têm prioridade.
 if [[ -f .env.local ]]; then
-    set -a; source <(grep -E '^CB_[A-Z_]+=' .env.local | while IFS= read -r l; do k="${l%%=*}"; [[ -v $k ]] || echo "$l"; done); set +a
+    # Lê linha a linha (sem `source`: senha com $, espaço ou aspas não vira código shell).
+    while IFS= read -r l; do
+        [[ "$l" =~ ^(CB_[A-Z_]+)=(.*)$ ]] || continue
+        k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+        v="${v#[\"\']}"; v="${v%[\"\']}"
+        [[ -v $k ]] || export "$k=$v"
+    done < .env.local
 fi
 
 MODE=debug

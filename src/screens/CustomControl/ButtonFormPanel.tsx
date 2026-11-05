@@ -74,7 +74,7 @@ function ButtonFormPanel({ button, onChange, onDelete, onClose }: Props) {
   );
 
   const handleCommandChange = useCallback(
-    (v: string) => update('command', v),
+    (v: string) => update('command', v.replace(/[^\x20-\x7E]/g, '')),
     [update],
   );
 
@@ -195,7 +195,7 @@ function ButtonFormPanel({ button, onChange, onDelete, onClose }: Props) {
                   placeholderTextColor="#bbb"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  maxLength={32}
+                  maxLength={19}
                 />
               </View>
 
@@ -325,7 +325,7 @@ function ButtonFormPanel({ button, onChange, onDelete, onClose }: Props) {
                 placeholderTextColor="#bbb"
                 autoCapitalize="none"
                 autoCorrect={false}
-                maxLength={32}
+                maxLength={19}
               />
             </View>
 
