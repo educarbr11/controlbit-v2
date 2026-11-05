@@ -50,9 +50,20 @@ success "Dispositivo: $MODEL ($SERIAL)"
 # ---- Projeto nativo ----
 [[ -d android ]] || { info "Gerando projeto nativo (expo prebuild)..."; npx expo prebuild --platform android; }
 
+# Ao terminar (ou Ctrl+C), encerra os daemons que sobram em segundo plano.
+stop_daemons() {
+    info "Encerrando daemons do Gradle/Kotlin..."
+    (cd android && ./gradlew --stop >/dev/null 2>&1) || true
+    # shortcut: derruba o Kotlin daemon de qualquer projeto, não só deste; refinar se atrapalhar outros builds.
+    pkill -f KotlinCompileDaemon 2>/dev/null || true
+}
+trap stop_daemons EXIT
+
 if [[ "$MODE" == debug ]]; then
     info "Compilando e instalando build de desenvolvimento (assinada com a chave de debug)..."
-    exec npx expo run:android --device "$SERIAL"
+    info "O Metro continua rodando; Ctrl+C para encerrar tudo."
+    npx expo run:android --device "$SERIAL"
+    exit
 fi
 
 # ---- Release: keystore ----

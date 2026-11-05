@@ -58,6 +58,8 @@ Para não digitar toda vez: `cp .env.example .env.local` e preencha `CB_KEYSTORE
 
 Se já houver uma versão com assinatura diferente instalada (ex.: debug → release), o script oferece desinstalar e reinstalar (apaga os dados do app).
 
+Ao terminar (ou com Ctrl+C), o script encerra os daemons do Gradle e do Kotlin para não deixar RAM e cache pendurados.
+
 Metro não conecta pelo USB? `adb reverse tcp:8081 tcp:8081`.
 
 ## Publicar na Play Store
