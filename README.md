@@ -58,6 +58,8 @@ Para não digitar toda vez: `cp .env.example .env.local` e preencha `CB_KEYSTORE
 
 Se já houver uma versão com assinatura diferente instalada (ex.: debug → release), o script oferece desinstalar e reinstalar (apaga os dados do app).
 
+O script lê a arquitetura do aparelho (ex.: `arm64-v8a`) e compila o código nativo só para ela: build mais rápido e APK menor. Por isso o APK gerado aqui só roda em aparelhos com a mesma arquitetura; para distribuir, use os scripts da Play Store (que compilam todas).
+
 Ao terminar (ou com Ctrl+C), o script encerra os daemons do Gradle e do Kotlin para não deixar RAM e cache pendurados.
 
 Metro não conecta pelo USB? `adb reverse tcp:8081 tcp:8081`.

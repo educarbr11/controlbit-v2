@@ -45,7 +45,12 @@ else
     esac
 fi
 MODEL="$(adb -s "$SERIAL" shell getprop ro.product.model | tr -d '\r')"
-success "Dispositivo: $MODEL ($SERIAL)"
+ABI="$(adb -s "$SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
+success "Dispositivo: $MODEL ($SERIAL, $ABI)"
+
+# Compila o código nativo só para a arquitetura do aparelho: build mais rápido e APK menor.
+# O resultado só roda em aparelhos com esse ABI; para distribuir, use build-android-release*.sh.
+export ORG_GRADLE_PROJECT_reactNativeArchitectures="$ABI"
 
 # ---- Projeto nativo ----
 [[ -d android ]] || { info "Gerando projeto nativo (expo prebuild)..."; npx expo prebuild --platform android; }
