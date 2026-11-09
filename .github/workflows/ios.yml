@@ -9,6 +9,14 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # Expo 56 exige Swift 6.2 (Xcode 26); o padrão do runner é o 16.4
+      - name: Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
