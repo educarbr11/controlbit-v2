@@ -78,7 +78,6 @@ export default function BasicControl() {
         const NavBar = require('expo-navigation-bar');
         if (isLandscape) {
           await NavBar.setVisibilityAsync('hidden');
-          await NavBar.setBehaviorAsync('overlay-swipe');
           cleanup = async () => { await NavBar.setVisibilityAsync('visible'); };
         } else {
           await NavBar.setVisibilityAsync('visible');
@@ -217,7 +216,7 @@ export default function BasicControl() {
 
   return (
     <View className="flex-1 bg-[#F5F0E8]">
-      <StatusBar barStyle="light-content" backgroundColor="#1C37B5" hidden={isLandscape} />
+      <StatusBar barStyle="light-content" hidden={isLandscape} />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       {!isLandscape && (

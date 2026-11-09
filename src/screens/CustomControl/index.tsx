@@ -82,7 +82,6 @@ export default function CustomControl() {
         const NavBar = require('expo-navigation-bar');
         if (isLandscape) {
           await NavBar.setVisibilityAsync('hidden');
-          await NavBar.setBehaviorAsync('overlay-swipe');
           cleanup = async () => { await NavBar.setVisibilityAsync('visible'); };
         } else {
           await NavBar.setVisibilityAsync('visible');
@@ -224,7 +223,6 @@ export default function CustomControl() {
     >
       <StatusBar
         barStyle="light-content"
-        backgroundColor={Colors.dark}
         hidden={isLandscape}
       />
 

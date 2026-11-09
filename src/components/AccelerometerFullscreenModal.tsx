@@ -67,7 +67,7 @@ export default function AccelerometerFullscreenModal({
       // no iOS mesmo com o lock nativo acima.
       supportedOrientations={[isLandscape ? 'landscape' : 'portrait']}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} hidden={isLandscape} />
+      <StatusBar barStyle="dark-content" hidden={isLandscape} />
       <View style={styles.backdrop}>
         <View style={styles.center}>
           <MicrobitTiltVisual
