@@ -14,10 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dejesusdev.controlbit",
+      "bundleIdentifier": "com.editoradogomaker.controlbit",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit.",
         "NSBluetoothPeripheralUsageDescription": "O ControlBit precisa do Bluetooth para se comunicar com o micro:bit.",
+        "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "O ControlBit usa o acelerômetro para controlar o veículo inclinando o celular."
       }
     },
