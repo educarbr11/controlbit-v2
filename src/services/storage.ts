@@ -156,10 +156,9 @@ async function readStorage(t?: TFunc): Promise<{
   }
 }
 
-/** Salva apenas perfis customizados (não os defaults) */
+/** Salva todos os perfis; os padrões guardam só os botões editados (veja readStorage) */
 async function writeProfiles(profiles: ControlProfile[]): Promise<void> {
-  const custom = profiles.filter((p) => !p.isDefault);
-  await AsyncStorage.setItem(PROFILES_KEY, JSON.stringify(custom));
+  await AsyncStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
 }
 
 // ─── API pública ──────────────────────────────────────────────────────────────
@@ -192,6 +191,7 @@ export const CommandStorage = {
     const { profiles } = await readStorage();
     profiles.push(newProfile);
     await writeProfiles(profiles);
+    await AsyncStorage.setItem(ACTIVE_PROFILE_KEY, newProfile.id);
     return newProfile;
   },
 
@@ -201,7 +201,7 @@ export const CommandStorage = {
     if (idx !== -1) {
       profiles[idx].buttons = buttons;
       // Persiste customizações mesmo em perfis padrão
-      await AsyncStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+      await writeProfiles(profiles);
     }
   },
 
@@ -219,7 +219,7 @@ export const CommandStorage = {
 
   async deleteProfile(id: string): Promise<void> {
     const { profiles } = await readStorage();
-    const filtered = profiles.filter((p) => p.id !== id && !p.isDefault);
+    const filtered = profiles.filter((p) => p.id !== id || p.isDefault);
     await writeProfiles(filtered);
   },
 

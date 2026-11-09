@@ -62,7 +62,8 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
   // --- end fix ---
 
   const handleChange = (key: keyof BasicCommands, value: string) => {
-    setLocalCommands(prev => ({ ...prev, [key]: value }));
+    // Só ASCII visível (btoa falha com outros) e 19 caracteres: BLE leva 20 bytes por pacote, contando o \n.
+    setLocalCommands(prev => ({ ...prev, [key]: value.replace(/[^\x20-\x7E]/g, '') }));
   };
 
   const handleSave = () => {
@@ -118,7 +119,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.up}
                 onChangeText={(val) => handleChange('up', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
 
@@ -128,7 +129,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.down}
                 onChangeText={(val) => handleChange('down', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
 
@@ -138,7 +139,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.left}
                 onChangeText={(val) => handleChange('left', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
 
@@ -148,7 +149,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.right}
                 onChangeText={(val) => handleChange('right', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
 
@@ -158,7 +159,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.horn}
                 onChangeText={(val) => handleChange('horn', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
 
@@ -168,7 +169,7 @@ export default function BasicCommandSettingsModal({ visible, commands, onSave, o
                 style={styles.input}
                 value={localCommands.stop}
                 onChangeText={(val) => handleChange('stop', val)}
-                maxLength={20}
+                maxLength={19}
               />
             </View>
           </ScrollView>

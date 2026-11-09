@@ -6,3 +6,5 @@ ios
 .git
 .claude
 *.log
+.env*
+*.jks

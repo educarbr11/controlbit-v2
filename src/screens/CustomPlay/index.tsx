@@ -108,7 +108,6 @@ export default function CustomPlay() {
     <View style={styles.screen}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={Colors.dark}
         hidden={isLandscape}
       />
 

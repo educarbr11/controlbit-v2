@@ -1,5 +1,5 @@
 // BasicControl/index.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   FlatList,
   Platform,
   Alert,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -21,7 +22,7 @@ import {
   Smartphone,
   Maximize2,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBluetooth } from '../../context/BluetoothContext';
 import { useLanguage } from '../../context/LanguageContext';
 import ControlPad from '../../components/ControlPad';
@@ -31,46 +32,10 @@ import BasicCommandSettingsModal from '../../components/BasicCommandSettingsModa
 import AccelerometerFullscreenModal from '../../components/AccelerometerFullscreenModal';
 import { useScreenOrientation } from '../../hooks/useScreenOrientation';
 import { useAccelerometer } from '../../hooks/useAccelerometer';
-import MicrobitTiltVisual from '../../components/MicrobitTiltVisual';
+import MicrobitTiltVisual, { TiltDirection } from '../../components/MicrobitTiltVisual';
+import { getTiltDirection } from '../../utils/tilt';
 import MobileRotateIcon from '../../components/icons/MobileRotateIcon';
 import { getCmdColor } from '../../utils/cmdColor';
-
-// Direção do tilt com histerese: precisa passar de ENTER_THRESHOLD para "entrar"
-// numa direção e voltar abaixo de EXIT_THRESHOLD para "sair" (evita oscilação na borda).
-const TILT_ENTER_THRESHOLD = 0.35;
-const TILT_EXIT_THRESHOLD = 0.2;
-
-type TiltDirection = 'up' | 'down' | 'left' | 'right' | null;
-
-function getTiltDirection(
-  x: number,
-  y: number,
-  isLandscape: boolean,
-  current: TiltDirection,
-  invertVertical: boolean,
-  invertHorizontal: boolean,
-): TiltDirection {
-  // Em portrait, inclinar o topo do celular para frente/trás move no eixo Y;
-  // inclinar para os lados move no eixo X. Em landscape a tela girou 90°, então
-  // os eixos físicos do acelerômetro trocam de papel.
-  let forwardAxis = isLandscape ? x : y;
-  let sideAxis = isLandscape ? -y : -x;
-  // Correção manual — em alguns aparelhos/orientações o mapeamento acima sai
-  // invertido (ex: paisagem-direita vs paisagem-esquerda); os widgets de
-  // inversão na tela cheia dão ao usuário como corrigir sem depender de nós
-  // acertarmos o lado físico certo pra cada device.
-  if (invertVertical) forwardAxis = -forwardAxis;
-  if (invertHorizontal) sideAxis = -sideAxis;
-
-  const threshold = (dir: TiltDirection) =>
-    dir === current ? TILT_EXIT_THRESHOLD : TILT_ENTER_THRESHOLD;
-
-  if (forwardAxis <= -threshold('up')) return 'up';
-  if (forwardAxis >= threshold('down')) return 'down';
-  if (sideAxis <= -threshold('left')) return 'left';
-  if (sideAxis >= threshold('right')) return 'right';
-  return null;
-}
 
 export default function BasicControl() {
   const navigation = useNavigation();
@@ -113,7 +78,6 @@ export default function BasicControl() {
         const NavBar = require('expo-navigation-bar');
         if (isLandscape) {
           await NavBar.setVisibilityAsync('hidden');
-          await NavBar.setBehaviorAsync('overlay-swipe');
           cleanup = async () => { await NavBar.setVisibilityAsync('visible'); };
         } else {
           await NavBar.setVisibilityAsync('visible');
@@ -179,21 +143,41 @@ export default function BasicControl() {
   }, [tiltX, tiltY, tiltEnabled, isLandscape, tiltDirection, invertVertical, invertHorizontal, commands, handleCommand]);
 
   const toggleTilt = useCallback(() => {
-    setTiltEnabled(prev => {
-      const next = !prev;
-      if (next && !isConnected) {
-        // Sem conexão Bluetooth os comandos não teriam para onde ir — avisa
-        // o usuário em vez de deixar o tilt "rodando" sem efeito nenhum.
-        Alert.alert(t('basic_tilt_bt_required_title'), t('basic_tilt_bt_required_msg'));
-        return prev;
-      }
-      if (!next && tiltDirection) {
-        setTiltDirection(null);
-        handleStop();
-      }
-      return next;
+    if (!tiltEnabled && !isConnected) {
+      // Sem conexão Bluetooth os comandos não teriam para onde ir — avisa
+      // o usuário em vez de deixar o tilt "rodando" sem efeito nenhum.
+      Alert.alert(t('basic_tilt_bt_required_title'), t('basic_tilt_bt_required_msg'));
+      return;
+    }
+    if (tiltEnabled && tiltDirection) {
+      setTiltDirection(null);
+      handleStop();
+    }
+    setTiltEnabled(!tiltEnabled);
+  }, [handleStop, tiltEnabled, tiltDirection, isConnected, t]);
+
+  // As abas não desmontam: sem isto o tilt seguiria mandando comandos em outra
+  // aba, e o robô ficaria no último comando se o app fosse para o fundo.
+  const tiltOnRef = useRef(false);
+  tiltOnRef.current = tiltEnabled;
+  const stopCmdRef = useRef(commands.stop);
+  stopCmdRef.current = commands.stop;
+  const stopTilt = useCallback(() => {
+    if (!tiltOnRef.current) return;
+    setTiltEnabled(false);
+    setTiltDirection(null);
+    setActiveCmd('');
+    sendCommand(stopCmdRef.current);
+  }, [sendCommand]);
+
+  useFocusEffect(useCallback(() => stopTilt, [stopTilt]));
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') stopTilt();
     });
-  }, [handleStop, tiltDirection, isConnected, t]);
+    return () => sub.remove();
+  }, [stopTilt]);
 
   // Ao abrir a tela cheia do acelerômetro, força a orientação paisagem —
   // é assim que o simulador do micro:bit fica visível por inteiro e do
@@ -232,7 +216,7 @@ export default function BasicControl() {
 
   return (
     <View className="flex-1 bg-[#F5F0E8]">
-      <StatusBar barStyle="light-content" backgroundColor="#1C37B5" hidden={isLandscape} />
+      <StatusBar barStyle="light-content" hidden={isLandscape} />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       {!isLandscape && (
