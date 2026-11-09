@@ -55,7 +55,7 @@ O script detecta o aparelho (pergunta qual, se houver vários), gera a pasta `an
 | `device` | Automática, com `android/app/debug.keystore` |
 | `device:release` | Com a keystore que você informar. Sem keystore (Enter), usa a chave de debug: roda no celular, mas **não serve para a Play Store** |
 
-Para não digitar toda vez: `cp .env.example .env.local` e preencha `CB_KEYSTORE` (aceita `~/`), `CB_KEY_ALIAS` e, se quiser, `CB_STORE_PASS`/`CB_KEY_PASS`. O `.env.local` é ignorado pelo git; variáveis já exportadas no shell têm prioridade. O script valida a keystore antes de compilar e confere a assinatura do APK com `apksigner`.
+Para não digitar toda vez: `cp .env.example .env.local` e preencha `CB_KEYSTORE` (aceita `~/`), `CB_KEY_ALIAS` e, se quiser, `CB_STORE_PASS`/`CB_KEY_PASS`. O `.env.local` é ignorado pelo git; variáveis já exportadas no shell têm prioridade. O mesmo `.env.local` é lido pelos `build-android-release*.sh` (que ainda aceitam `CB_EXPECTED_SHA1`, o SHA-1 da chave de upload no Play Console). O script de instalação valida a keystore antes de compilar e confere a assinatura do APK com `apksigner`.
 
 Se já houver uma versão com assinatura diferente instalada (ex.: debug → release), o script oferece desinstalar e reinstalar (apaga os dados do app).
 

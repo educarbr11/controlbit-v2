@@ -14,16 +14,7 @@ set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 source scripts/lib.sh
 
-# .env.local está no .gitignore; variáveis já exportadas no shell têm prioridade.
-if [[ -f .env.local ]]; then
-    # Lê linha a linha (sem `source`: senha com $, espaço ou aspas não vira código shell).
-    while IFS= read -r l; do
-        [[ "$l" =~ ^(CB_[A-Z_]+)=(.*)$ ]] || continue
-        k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
-        v="${v#[\"\']}"; v="${v%[\"\']}"
-        [[ -v $k ]] || export "$k=$v"
-    done < .env.local
-fi
+load_env
 
 MODE=debug
 case "${1:-}" in

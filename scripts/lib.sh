@@ -6,3 +6,16 @@ success() { echo -e "${C_GREEN}✔${C_OFF} $*"; }
 warn()    { echo -e "${C_YELLOW}⚠${C_OFF} $*"; }
 die()     { echo -e "${C_RED}✖${C_OFF} $*" >&2; exit 1; }
 need()    { command -v "$1" >/dev/null 2>&1 || die "'$1' não encontrado. ${2:-Instale e tente de novo.}"; }
+
+# Carrega CB_* de .env.local (no .gitignore). Variáveis já exportadas no shell têm prioridade.
+load_env() {
+    [[ -f .env.local ]] || return 0
+    local l k v
+    # Lê linha a linha (sem `source`: senha com $, espaço ou aspas não vira código shell).
+    while IFS= read -r l; do
+        [[ "$l" =~ ^(CB_[A-Z_]+)=(.*)$ ]] || continue
+        k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+        v="${v#[\"\']}"; v="${v%[\"\']}"
+        [[ -v $k ]] || export "$k=$v"
+    done < .env.local
+}

@@ -75,6 +75,8 @@ trap cleanup EXIT INT TERM
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+source scripts/lib.sh
+load_env  # CB_* de .env.local (opcional)
 
 echo
 echo -e "${CYAN}============================================${NC}"
@@ -163,7 +165,8 @@ echo
 echo -e "${CYAN}--- Configuração da chave de upload ---${NC}"
 echo
 
-read -r -p "Caminho da keystore (.jks): " KEYSTORE_INPUT
+KEYSTORE_INPUT="${CB_KEYSTORE:-}"
+[[ -n "$KEYSTORE_INPUT" ]] || read -r -p "Caminho da keystore (.jks): " KEYSTORE_INPUT
 
 # Expande ~/ se necessário
 KEYSTORE_INPUT="${KEYSTORE_INPUT/#\~/$HOME}"
@@ -173,16 +176,17 @@ KEYSTORE_INPUT="${KEYSTORE_INPUT/#\~/$HOME}"
 
 KEYSTORE_PATH="$(realpath "$KEYSTORE_INPUT")"
 
-read -r -p "Alias da chave [controlbit-upload]: " KEY_ALIAS
+KEY_ALIAS="${CB_KEY_ALIAS:-}"
+[[ -n "$KEY_ALIAS" ]] || read -r -p "Alias da chave [controlbit-upload]: " KEY_ALIAS
 KEY_ALIAS="${KEY_ALIAS:-controlbit-upload}"
 
 echo
 
-read -r -s -p "Senha da keystore: " STORE_PASSWORD
-echo
+STORE_PASSWORD="${CB_STORE_PASS:-}"
+[[ -n "$STORE_PASSWORD" ]] || { read -r -s -p "Senha da keystore: " STORE_PASSWORD; echo; }
 
-read -r -s -p "Senha da chave (Enter = mesma senha da keystore): " KEY_PASSWORD
-echo
+KEY_PASSWORD="${CB_KEY_PASS:-}"
+[[ -n "$KEY_PASSWORD" ]] || { read -r -s -p "Senha da chave (Enter = mesma senha da keystore): " KEY_PASSWORD; echo; }
 
 if [[ -z "$KEY_PASSWORD" ]]; then
     KEY_PASSWORD="$STORE_PASSWORD"
@@ -248,7 +252,8 @@ echo
 echo "Você também pode pressionar Enter para pular esta validação."
 echo
 
-read -r -p "SHA-1 esperado: " EXPECTED_SHA1
+EXPECTED_SHA1="${CB_EXPECTED_SHA1:-}"
+[[ -n "$EXPECTED_SHA1" ]] || read -r -p "SHA-1 esperado: " EXPECTED_SHA1
 
 EXPECTED_SHA1="$(
     echo "$EXPECTED_SHA1" |
