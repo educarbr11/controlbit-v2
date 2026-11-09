@@ -16,9 +16,14 @@ jobs:
       - run: cd ios && pod install
 
       - name: Chave da API
+        env:
+          KEY: ${{ secrets.ASC_KEY_P8 }}
         run: |
           mkdir -p ~/private_keys
-          echo "${{ secrets.ASC_KEY_P8 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          F=~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          # Aceita o .p8 em texto puro ou em base64
+          if [[ "$KEY" == *"BEGIN PRIVATE KEY"* ]]; then printf '%s\n' "$KEY" > $F; else echo "$KEY" | base64 -d > $F; fi
+          openssl pkey -in $F -noout || { echo "::error::ASC_KEY_P8 inválido: cole o conteúdo do .p8 (texto puro ou base64)"; exit 1; }
 
       # A Apple rejeita build number repetido
       - name: Build number
