@@ -31,6 +31,8 @@ jobs:
       - name: Build number
         run: cd ios && agvtool new-version -all ${{ github.run_number }}
 
+      # Archive sem assinar: o archive automático exige um iPhone cadastrado (perfil de desenvolvimento).
+      # A assinatura de distribuição é feita no export, via chave da API.
       - name: Archive
         run: |
           cd ios
@@ -38,11 +40,7 @@ jobs:
             -workspace controlbit.xcworkspace -scheme controlbit \
             -configuration Release -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/app.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }} \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} CODE_SIGN_STYLE=Automatic
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Exportar e enviar
         run: |
@@ -51,6 +49,7 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
             <key>teamID</key><string>${{ secrets.APPLE_TEAM_ID }}</string>
           </dict></plist>
           PLIST
