@@ -10,6 +10,9 @@ import RNBluetoothClassic, {
 } from "react-native-bluetooth-classic";
 import { BluetoothStatus, ScannedDevice } from "../types/control.types";
 
+// Bluetooth Classic (HC-05/HC-06) só no Android: no iOS o módulo nativo nem é linkado (react-native.config.js)
+const HAS_CLASSIC = Platform.OS === "android";
+
 // ─── BLE UUIDs ────────────────────────────────────────────────────────────────
 const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const UART_RX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -85,6 +88,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Monitora estado do adaptador Clássico ───────────────────────────────────
   useEffect(() => {
+    if (!HAS_CLASSIC) return;
     RNBluetoothClassic.isBluetoothEnabled()
       .then(setBluetoothEnabled)
       .catch(() => {});
@@ -120,7 +124,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
     if (scanTimer.current) clearTimeout(scanTimer.current);
     scanTimer.current = null;
     manager.stopDeviceScan();
-    RNBluetoothClassic.cancelDiscovery().catch(() => {});
+    if (HAS_CLASSIC) RNBluetoothClassic.cancelDiscovery().catch(() => {});
     setIsScanning(false);
   }, [manager]);
 
@@ -139,7 +143,7 @@ export const BluetoothProvider = ({ children }: { children: ReactNode }) => {
     setIsScanning(true);
 
     // 1. Dispositivos Clássicos PAREADOS (HC-05/HC-06) — aparecem imediatamente
-    try {
+    if (HAS_CLASSIC) try {
       const bonded = await RNBluetoothClassic.getBondedDevices();
       const classicList: ScannedDevice[] = bonded.map(d => ({
         id:   d.address,
